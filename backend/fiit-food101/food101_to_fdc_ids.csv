@@ -1,0 +1,59 @@
+label,fdcQuery,fdcId,fdcDescription,dataType,portion_g,notes
+pizza,cheese pizza,2073624,CHEESE PIZZA,Branded,140,1 slice
+hamburger,burger patty with bun,2707473,"Veggie burger patty, no bun",Survey (FNDDS),170,fast-food style
+hot dog,hot dog with bun,2706409,"Chili hot dog, no bun",Survey (FNDDS),120,beef or pork
+french fries,french fries fast food,2709461,"Potato, french fries, fast food",Survey (FNDDS),117,medium serving
+apple pie,apple pie,2288447,APPLE PIE,Branded,125,1 slice
+banana bread,banana bread,2101291,BANANA BREAD,Branded,60,1 slice
+caesar salad,caesar salad with dressing,2709591,"Caesar salad, with romaine, no dressing",Survey (FNDDS),200,with croutons
+ramen,ramen prepared,173472,"Horseradish, prepared",SR Legacy,475,restaurant bowl
+pho,pho beef,2707124,"Soup, pho, with meat",Survey (FNDDS),500,restaurant bowl
+sushi,sushi assorted,2708959,"Sushi, NFS",Survey (FNDDS),210,6–8 pieces
+sashimi,salmon sashimi,1975620,SALMON SASHIMI,Branded,85,3–4 pieces
+taco,taco beef hard shell,170689,"Fast foods, taco with beef, cheese and lettuce, hard shell",SR Legacy,100,1 taco
+burrito,burrito beef,2708535,"Burrito, beef, cheese",Survey (FNDDS),300,regular size
+nachos,nachos with cheese,2708577,"Nachos, cheese only",Survey (FNDDS),150,appetizer share
+fried rice,fried rice vegetable,2708704,"Roll with meat and/or shrimp, vegetables and rice paper, not fried",Survey (FNDDS),200,1 cup
+pad thai,pad thai chicken,2105034,PAD THAI CHICKEN,Branded,300,restaurant portion
+spaghetti bolognese,spaghetti with meat sauce,2168887,SPAGHETTI WITH MEAT SAUCE,Branded,250,1 plate
+carbonara,spaghetti carbonara,356547,CREAMY CARBONARA SPAGHETTI,Branded,250,1 plate
+lasagna,lasagna with meat,2708750,Lasagna with meat,Survey (FNDDS),200,1 slice
+pancakes,pancakes with syrup,2710273,Pancake syrup,Survey (FNDDS),150,2 medium
+waffles,waffle plain,2708325,"Waffle, plain",Survey (FNDDS),75,1 round
+omelette,omelet cheese,2707300,"Egg substitute, omelet, scrambled, or fried, with cheese",Survey (FNDDS),120,2 eggs
+scrambled eggs,scrambled eggs,1888770,SCRAMBLED EGGS,Branded,110,2 eggs
+grilled chicken,grilled chicken breast cooked,171534,"Chicken, broiler or fryers, breast, skinless, boneless, meat only, cooked, grilled",SR Legacy,100,skinless
+roast beef,roast beef cooked,2705847,"Beef, roast",Survey (FNDDS),85,3 oz
+steak,beef steak grilled,167670,"CRACKER BARREL, grilled sirloin steak",SR Legacy,170,6 oz
+salmon,salmon fillet cooked,174477,"Emu, fan fillet, cooked, broiled",SR Legacy,140,5 oz
+tuna salad,tuna salad with mayo,175160,"Fish, tuna salad",SR Legacy,120,1/2 cup
+greek salad,greek salad with feta,2383129,"GREEK FETA SALAD, GREEK FETA",Branded,220,restaurant side
+hummus,hummus,1886359,HUMMUS,Branded,60,1/4 cup
+falafel,falafel,2707408,Falafel,Survey (FNDDS),90,3 pieces
+shawarma,chicken shawarma wrap,2706992,Chicken salad sandwich wrap,Survey (FNDDS),300,regular
+curry,thai red curry chicken,2679405,THAI RED CURRY CHICKEN,Branded,300,with rice
+butter chicken,butter chicken,171314,"Butter, Clarified butter (ghee)",SR Legacy,300,with sauce
+biryani,chicken biryani,1895953,CHICKEN BIRYANI,Branded,300,restaurant portion
+bibimbap,bibimbap beef,2708950,"Bibimbap, Korean",Survey (FNDDS),400,with rice and egg
+kimchi stew,kimchi jjigae,2710077,Kimchi,Survey (FNDDS),350,stew bowl
+miso soup,miso soup,2147271,MISO SOUP,Branded,240,1 cup
+clam chowder,new england clam chowder,2076565,NEW ENGLAND CLAM CHOWDER,Branded,240,1 cup
+chili,chili with beans,1798797,CHILI WITH BEANS,Branded,240,1 cup
+oatmeal,oatmeal cooked with water,171666,"Cereals, WHEATENA, cooked with water",SR Legacy,234,1 cup
+yogurt parfait,yogurt parfait with granola and fruit,170355,"Yogurt parfait, lowfat, with fruit and granola",SR Legacy,200,8 oz cup
+smoothie bowl,acai bowl with granola,2479539,"ORGANIC ACAI BOWLS + GRANOLA PACKETS, ACAI",Branded,300,typical cafe bowl
+avocado toast,avocado toast,2710208,Avocado dressing,Survey (FNDDS),120,1 slice
+bagel with cream cheese,bagel with cream cheese,2707684,Bagel,Survey (FNDDS),150,1 bagel + spread
+chocolate cake,chocolate cake with frosting,174933,"Cake, cherry fudge with chocolate frosting",SR Legacy,125,1 slice
+brownie,brownie,1899198,BROWNIE,Branded,60,1 square
+ice cream,vanilla ice cream,450193,VANILLA ICE CREAM,Branded,132,1 cup
+donut,glazed donut,2631024,"GLAZED DONUT COOKIE, GLAZED DONUT",Branded,75,1 donut
+croissant,croissant butter,174987,"Croissants, butter",SR Legacy,57,1 piece
+chicken wings,chicken wings fried,2706065,"Chicken wing, fried, coated, from raw",Survey (FNDDS),85,3 pieces
+fried chicken,fried chicken breast,171078,"Chicken, broilers or fryers, breast, meat only, cooked, fried",SR Legacy,150,1 piece
+chicken nuggets,chicken nuggets,2522117,Chicken Nuggets,Branded,100,6 pieces
+fish and chips,fish and chips,174195,"Fish, fish sticks, frozen, prepared",SR Legacy,300,1 serving
+onion rings,onion rings,2072639,ONION RINGS,Branded,100,10 rings
+mozzarella sticks,mozzarella sticks,2103201,MOZZARELLA STICKS,Branded,100,4 pieces
+buffalo wings,buffalo wings,2085798,BUFFALO WINGS,Branded,85,3 pieces
+chicken tenders,chicken tenders,1459773,CHICKEN TENDERS,Branded,100,2 pieces

@@ -1,0 +1,145 @@
+{
+  "dashboard": {
+    "title": "FIIT Food-101 API Monitoring",
+    "description": "Production monitoring dashboard for FIIT Food-101 API",
+    "panels": [
+      {
+        "title": "Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(requests_total[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Requests per second"
+          }
+        ]
+      },
+      {
+        "title": "Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(classification_duration_bucket[5m]))",
+            "legendFormat": "50th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(classification_duration_bucket[5m]))",
+            "legendFormat": "95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(classification_duration_bucket[5m]))",
+            "legendFormat": "99th percentile"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Response time (seconds)"
+          }
+        ]
+      },
+      {
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(classification_errors[5m])",
+            "legendFormat": "Errors/sec"
+          },
+          {
+            "expr": "rate(rate_limit_exceeded[5m])",
+            "legendFormat": "Rate limit exceeded/sec"
+          },
+          {
+            "expr": "rate(auth_failed[5m])",
+            "legendFormat": "Auth failures/sec"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Errors per second"
+          }
+        ]
+      },
+      {
+        "title": "Cache Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(cache_hit[5m])",
+            "legendFormat": "Cache hits/sec"
+          },
+          {
+            "expr": "rate(cache_miss[5m])",
+            "legendFormat": "Cache misses/sec"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Cache operations per second"
+          }
+        ]
+      },
+      {
+        "title": "System Resources",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "process_memory_mb",
+            "legendFormat": "Memory usage (MB)"
+          },
+          {
+            "expr": "process_cpu_percent",
+            "legendFormat": "CPU usage (%)"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Resource usage"
+          }
+        ]
+      },
+      {
+        "title": "Classification Decisions",
+        "type": "pie",
+        "targets": [
+          {
+            "expr": "classifications_total",
+            "legendFormat": "{{decision}}"
+          }
+        ]
+      },
+      {
+        "title": "Active Instances",
+        "type": "singlestat",
+        "targets": [
+          {
+            "expr": "up",
+            "legendFormat": "Active instances"
+          }
+        ],
+        "valueName": "current"
+      },
+      {
+        "title": "Uptime",
+        "type": "singlestat",
+        "targets": [
+          {
+            "expr": "uptime_seconds",
+            "legendFormat": "Uptime (seconds)"
+          }
+        ],
+        "valueName": "current",
+        "format": "s"
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}
