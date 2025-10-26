@@ -1,445 +1,233 @@
-// Predictions confirmation component with nutrition info and portion selection
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-} from 'react-native';
-import { useTheme } from '@/providers/ThemeProvider';
-import { TopKPrediction, FoodRecognitionResult } from '@/types/nutrition';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Button } from './Button';
+import { useTheme } from '@/providers/ThemeProvider';
+import { Button } from '@/components/ui/Button';
+import { PortionSelector } from '@/components/PortionSelector';
 
-type Props = {
-  result: FoodRecognitionResult;
-  onSelect: (label: string, portionSize?: number) => void;
-  onFallback?: () => void;
-  isLoading?: boolean;
-};
+interface PredictionsConfirmProps {
+  predictions: Array<{
+    label: string;
+    confidence: number;
+    calories?: number;
+    protein_g?: number;
+    carbs_g?: number;
+    fat_g?: number;
+  }>;
+  onConfirm: (selectedPrediction: any, portion: number) => void;
+  onCancel: () => void;
+  visible: boolean;
+}
 
-export const PredictionsConfirm: React.FC<Props> = ({
-  result,
-  onSelect,
-  onFallback,
-  isLoading = false,
+export const PredictionsConfirm: React.FC<PredictionsConfirmProps> = ({
+  predictions,
+  onConfirm,
+  onCancel,
+  visible,
 }) => {
   const { theme } = useTheme();
-  const [selectedPrediction, setSelectedPrediction] =
-    useState<TopKPrediction | null>(result.topk?.[0] || null);
-  const [portionSize, setPortionSize] = useState(100); // Default 100g
+  const [selectedPrediction, setSelectedPrediction] = useState(predictions[0]);
+  const [portion, setPortion] = useState(1);
 
-  if (!result.topk?.length) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <MaterialIcons
-            name="error-outline"
-            size={48}
-            color={theme?.colors?.error?.[500] || '#ef4444'}
-          />
-          <Text
-            style={[
-              styles.title,
-              { color: theme?.colors?.text?.primary || '#000000' },
-            ]}
-          >
-            No predictions available
-          </Text>
-          <Text
-            style={[
-              styles.subtitle,
-              { color: theme?.colors?.text?.secondary || '#666666' },
-            ]}
-          >
-            We couldn't identify the food in your photo. Try taking another
-            photo or search manually.
-          </Text>
-        </View>
-
-        {onFallback && (
-          <Button
-            title="Search Manually"
-            onPress={onFallback}
-            variant="outline"
-            style={styles.fallbackButton}
-          />
-        )}
-      </View>
-    );
-  }
+  if (!visible || !predictions.length) return null;
 
   const handleConfirm = () => {
-    if (selectedPrediction) {
-      onSelect(selectedPrediction.label, portionSize);
-    }
+    onConfirm(selectedPrediction, portion);
   };
 
-  const formatConfidence = (prob: number) => {
-    return `${Math.round(prob * 100)}%`;
+  const calculateNutrition = (prediction: any, portion: number) => {
+    return {
+      calories: Math.round((prediction.calories || 0) * portion),
+      protein_g: Math.round((prediction.protein_g || 0) * portion * 10) / 10,
+      carbs_g: Math.round((prediction.carbs_g || 0) * portion * 10) / 10,
+      fat_g: Math.round((prediction.fat_g || 0) * portion * 10) / 10,
+    };
   };
 
-  const getConfidenceColor = (prob: number) => {
-    if (prob >= 0.8) return theme?.colors?.success?.[500] || '#22c55e';
-    if (prob >= 0.6) return theme?.colors?.warning?.[500] || '#f59e0b';
-    return theme?.colors?.error?.[500] || '#ef4444';
-  };
-
-  const renderNutritionInfo = () => {
-    if (!result.nutrition) return null;
-
-    const nutrition = result.nutrition;
-    const multiplier = portionSize / 100; // Default to 100g base
-
-    return (
-      <View
-        style={[
-          styles.nutritionContainer,
-          { backgroundColor: theme?.colors?.surface?.secondary || '#f8fafc' },
-        ]}
-      >
-        <Text
-          style={[
-            styles.nutritionTitle,
-            { color: theme?.colors?.text?.primary || '#000000' },
-          ]}
-        >
-          Nutrition Info ({portionSize}g)
-        </Text>
-
-        <View style={styles.nutritionGrid}>
-          <View style={styles.nutritionItem}>
-            <MaterialIcons
-              name="local-fire-department"
-              size={20}
-              color={theme?.colors?.brand?.primary?.[600] || '#22c55e'}
-            />
-            <Text
-              style={[
-                styles.nutritionValue,
-                { color: theme?.colors?.text?.primary || '#000000' },
-              ]}
-            >
-              {Math.round((nutrition.kcal || 0) * multiplier)}
-            </Text>
-            <Text
-              style={[
-                styles.nutritionLabel,
-                { color: theme?.colors?.text?.secondary || '#666666' },
-              ]}
-            >
-              Calories
-            </Text>
-          </View>
-
-          <View style={styles.nutritionItem}>
-            <MaterialIcons
-              name="fitness-center"
-              size={20}
-              color={theme?.colors?.brand?.primary?.[600] || '#22c55e'}
-            />
-            <Text
-              style={[
-                styles.nutritionValue,
-                { color: theme?.colors?.text?.primary || '#000000' },
-              ]}
-            >
-              {Math.round((nutrition.protein || 0) * multiplier * 10) / 10}g
-            </Text>
-            <Text
-              style={[
-                styles.nutritionLabel,
-                { color: theme?.colors?.text?.secondary || '#666666' },
-              ]}
-            >
-              Protein
-            </Text>
-          </View>
-
-          <View style={styles.nutritionItem}>
-            <MaterialIcons
-              name="grain"
-              size={20}
-              color={theme?.colors?.brand?.primary?.[600] || '#22c55e'}
-            />
-            <Text
-              style={[
-                styles.nutritionValue,
-                { color: theme?.colors?.text?.primary || '#000000' },
-              ]}
-            >
-              {Math.round((nutrition.carbs || 0) * multiplier * 10) / 10}g
-            </Text>
-            <Text
-              style={[
-                styles.nutritionLabel,
-                { color: theme?.colors?.text?.secondary || '#666666' },
-              ]}
-            >
-              Carbs
-            </Text>
-          </View>
-
-          <View style={styles.nutritionItem}>
-            <MaterialIcons
-              name="opacity"
-              size={20}
-              color={theme?.colors?.brand?.primary?.[600] || '#22c55e'}
-            />
-            <Text
-              style={[
-                styles.nutritionValue,
-                { color: theme?.colors?.text?.primary || '#000000' },
-              ]}
-            >
-              {Math.round((nutrition.fat || 0) * multiplier * 10) / 10}g
-            </Text>
-            <Text
-              style={[
-                styles.nutritionLabel,
-                { color: theme?.colors?.text?.secondary || '#666666' },
-              ]}
-            >
-              Fat
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const renderPortionSelector = () => (
-    <View style={styles.portionContainer}>
-      <Text
-        style={[
-          styles.portionTitle,
-          { color: theme?.colors?.text?.primary || '#000000' },
-        ]}
-      >
-        Portion Size
-      </Text>
-
-      <View style={styles.portionButtons}>
-        {[50, 100, 150, 200].map(size => (
-          <Pressable
-            key={size}
-            style={[
-              styles.portionButton,
-              portionSize === size && styles.selectedPortionButton,
-              {
-                borderColor:
-                  portionSize === size
-                    ? theme?.colors?.brand?.primary?.[600] || '#22c55e'
-                    : theme?.colors?.border?.primary || '#e5e5e5',
-                backgroundColor:
-                  portionSize === size
-                    ? theme?.colors?.brand?.primary?.[50] || '#f0f9ff'
-                    : 'transparent',
-              },
-            ]}
-            onPress={() => setPortionSize(size)}
-          >
-            <Text
-              style={[
-                styles.portionButtonText,
-                {
-                  color:
-                    portionSize === size
-                      ? theme?.colors?.brand?.primary?.[600] || '#22c55e'
-                      : theme?.colors?.text?.primary || '#000000',
-                },
-              ]}
-            >
-              {size}g
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
+  const nutrition = calculateNutrition(selectedPrediction, portion);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <MaterialIcons
-          name="restaurant"
-          size={48}
-          color={theme?.colors?.brand?.primary?.[600] || '#22c55e'}
-        />
-        <Text
-          style={[
-            styles.title,
-            { color: theme?.colors?.text?.primary || '#000000' },
-          ]}
-        >
-          Confirm your meal
-        </Text>
-        <Text
-          style={[
-            styles.subtitle,
-            { color: theme?.colors?.text?.secondary || '#666666' },
-          ]}
-        >
-          We found these foods in your photo. Select the correct one and adjust
-          the portion size.
-        </Text>
-      </View>
+    <View style={styles.overlay}>
+      <View style={[styles.modal, { backgroundColor: theme.colors.background.primary }]}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: theme.colors.text.primary }]}>
+            Confirm Your Meal
+          </Text>
+          <TouchableOpacity onPress={onCancel} style={styles.closeButton}>
+            <MaterialIcons name="close" size={24} color={theme.colors.text.secondary} />
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.predictionsContainer}>
-        {result.topk.map((prediction, index) => (
-          <Pressable
-            key={index}
-            style={[
-              styles.predictionCard,
-              selectedPrediction?.label === prediction.label &&
-                styles.selectedCard,
-              {
-                borderColor:
-                  selectedPrediction?.label === prediction.label
-                    ? theme?.colors?.brand?.primary?.[600] || '#22c55e'
-                    : theme?.colors?.border?.primary || '#e5e5e5',
-                backgroundColor:
-                  selectedPrediction?.label === prediction.label
-                    ? theme?.colors?.brand?.primary?.[50] || '#f0f9ff'
-                    : theme?.colors?.surface?.primary || '#ffffff',
-              },
-            ]}
-            onPress={() => setSelectedPrediction(prediction)}
-          >
-            <View style={styles.predictionHeader}>
-              <Text
+        <ScrollView style={styles.content}>
+          <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]}>
+            Select the food that best matches your meal:
+          </Text>
+
+          <View style={styles.predictionsList}>
+            {predictions.map((prediction, index) => (
+              <TouchableOpacity
+                key={index}
                 style={[
-                  styles.predictionLabel,
-                  { color: theme?.colors?.text?.primary || '#000000' },
+                  styles.predictionItem,
+                  {
+                    backgroundColor: selectedPrediction === prediction 
+                      ? theme.colors.brand.primary + '20'
+                      : theme.colors.background.secondary,
+                    borderColor: selectedPrediction === prediction 
+                      ? theme.colors.brand.primary
+                      : theme.colors.border.primary,
+                  }
                 ]}
+                onPress={() => setSelectedPrediction(prediction)}
               >
-                {prediction.label}
-              </Text>
-              <View
-                style={[
-                  styles.confidenceBadge,
-                  { backgroundColor: getConfidenceColor(prediction.prob) },
-                ]}
-              >
-                <Text style={styles.confidenceText}>
-                  {formatConfidence(prediction.prob)}
+                <View style={styles.predictionContent}>
+                  <Text style={[styles.predictionLabel, { color: theme.colors.text.primary }]}>
+                    {prediction.label.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </Text>
+                  <Text style={[styles.predictionConfidence, { color: theme.colors.text.secondary }]}>
+                    {Math.round(prediction.confidence * 100)}% confidence
+                  </Text>
+                </View>
+                {selectedPrediction === prediction && (
+                  <MaterialIcons name="check-circle" size={24} color={theme.colors.brand.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.portionSection}>
+            <Text style={[styles.portionTitle, { color: theme.colors.text.primary }]}>
+              Portion Size
+            </Text>
+            <PortionSelector
+              value={portion}
+              onChange={setPortion}
+              min={0.1}
+              max={5}
+              step={0.1}
+            />
+          </View>
+
+          <View style={[styles.nutritionCard, { backgroundColor: theme.colors.background.secondary }]}>
+            <Text style={[styles.nutritionTitle, { color: theme.colors.text.primary }]}>
+              Nutrition Breakdown
+            </Text>
+            <View style={styles.nutritionGrid}>
+              <View style={styles.nutritionItem}>
+                <Text style={[styles.nutritionValue, { color: theme.colors.text.primary }]}>
+                  {nutrition.calories}
+                </Text>
+                <Text style={[styles.nutritionLabel, { color: theme.colors.text.secondary }]}>
+                  Calories
+                </Text>
+              </View>
+              <View style={styles.nutritionItem}>
+                <Text style={[styles.nutritionValue, { color: theme.colors.text.primary }]}>
+                  {nutrition.protein_g}g
+                </Text>
+                <Text style={[styles.nutritionLabel, { color: theme.colors.text.secondary }]}>
+                  Protein
+                </Text>
+              </View>
+              <View style={styles.nutritionItem}>
+                <Text style={[styles.nutritionValue, { color: theme.colors.text.primary }]}>
+                  {nutrition.carbs_g}g
+                </Text>
+                <Text style={[styles.nutritionLabel, { color: theme.colors.text.secondary }]}>
+                  Carbs
+                </Text>
+              </View>
+              <View style={styles.nutritionItem}>
+                <Text style={[styles.nutritionValue, { color: theme.colors.text.primary }]}>
+                  {nutrition.fat_g}g
+                </Text>
+                <Text style={[styles.nutritionLabel, { color: theme.colors.text.secondary }]}>
+                  Fat
                 </Text>
               </View>
             </View>
+          </View>
+        </ScrollView>
 
-            {selectedPrediction?.label === prediction.label && (
-              <View style={styles.selectedIndicator}>
-                <MaterialIcons
-                  name="check-circle"
-                  size={20}
-                  color={theme?.colors?.brand?.primary?.[600] || '#22c55e'}
-                />
-                <Text
-                  style={[
-                    styles.selectedText,
-                    {
-                      color: theme?.colors?.brand?.primary?.[600] || '#22c55e',
-                    },
-                  ]}
-                >
-                  Selected
-                </Text>
-              </View>
-            )}
-          </Pressable>
-        ))}
-      </View>
-
-      {renderPortionSelector()}
-      {renderNutritionInfo()}
-
-      <View style={styles.actionsContainer}>
-        <Button
-          title={isLoading ? 'Logging...' : 'Log This Meal'}
-          onPress={handleConfirm}
-          disabled={!selectedPrediction || isLoading}
-          style={styles.confirmButton}
-        />
-
-        {onFallback && (
+        <View style={styles.footer}>
           <Button
-            title="Search Manually"
-            onPress={onFallback}
-            variant="outline"
-            style={styles.fallbackButton}
+            title="Add to Log"
+            onPress={handleConfirm}
+            variant="primary"
+            size="large"
+            style={styles.confirmButton}
           />
-        )}
+        </View>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modal: {
+    borderRadius: 16,
+    margin: 20,
+    maxHeight: '80%',
+    width: '90%',
+    maxWidth: 400,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  predictionsContainer: {
-    marginBottom: 24,
-  },
-  predictionCard: {
-    borderWidth: 2,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  selectedCard: {
-    borderWidth: 2,
-  },
-  predictionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
-  predictionLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    flex: 1,
-  },
-  confidenceBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  confidenceText: {
-    color: 'white',
-    fontSize: 12,
+  title: {
+    fontSize: 20,
     fontWeight: '600',
   },
-  selectedIndicator: {
+  closeButton: {
+    padding: 4,
+  },
+  content: {
+    padding: 20,
+  },
+  subtitle: {
+    fontSize: 16,
+    marginBottom: 16,
+    lineHeight: 24,
+  },
+  predictionsList: {
+    marginBottom: 24,
+  },
+  predictionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
   },
-  selectedText: {
-    marginLeft: 8,
+  predictionContent: {
+    flex: 1,
+  },
+  predictionLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  predictionConfidence: {
     fontSize: 14,
-    fontWeight: '600',
   },
-  portionContainer: {
+  portionSection: {
     marginBottom: 24,
   },
   portionTitle: {
@@ -447,59 +235,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 12,
   },
-  portionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  portionButton: {
-    borderWidth: 1,
+  nutritionCard: {
     borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    minWidth: 60,
-    alignItems: 'center',
-  },
-  selectedPortionButton: {
-    borderWidth: 2,
-  },
-  portionButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  nutritionContainer: {
-    borderRadius: 12,
     padding: 16,
     marginBottom: 24,
   },
   nutritionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   nutritionGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
   },
   nutritionItem: {
     alignItems: 'center',
-    flex: 1,
   },
   nutritionValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginTop: 4,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   nutritionLabel: {
     fontSize: 12,
-    marginTop: 2,
   },
-  actionsContainer: {
-    marginTop: 24,
+  footer: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
   },
   confirmButton: {
-    marginBottom: 12,
-  },
-  fallbackButton: {
-    marginBottom: 12,
+    width: '100%',
   },
 });
