@@ -1,11 +1,9 @@
-// Notifications service for scheduling and managing local notifications
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { http } from './http';
-import { AnalyticsService } from './analytics';
+import { Linking } from 'react-native';
 
-// Configure notification behavior
+// Notification configuration
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -14,36 +12,11 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export interface NotificationSettings {
-  morningReminder: boolean;
-  lunchReminder: boolean;
-  eveningFeedback: boolean;
-  weeklyCheckIn: boolean;
-  morningTime: string; // HH:MM format
-  lunchTime: string; // HH:MM format
-  eveningTime: string; // HH:MM format
-  weeklyDay: number; // 0 = Sunday, 1 = Monday, etc.
-}
-
-export interface ScheduledNotification {
-  id: string;
-  title: string;
-  body: string;
-  data?: Record<string, any>;
-  trigger: Notifications.NotificationTriggerInput;
-}
-
 export class NotificationService {
-  private static isInitialized: boolean = false;
-  private static notificationSettings: NotificationSettings = {
-    morningReminder: true,
-    lunchReminder: true,
-    eveningFeedback: true,
-    weeklyCheckIn: true,
-    morningTime: '08:00',
-    lunchTime: '12:00',
-    eveningTime: '19:00',
-    weeklyDay: 0, // Sunday
+  private static readonly NOTIFICATION_IDS = {
+    MORNING_PLANNER: 'morning_planner',
+    LUNCH_REMINDER: 'lunch_reminder',
+    EVENING_FEEDBACK: 'evening_feedback',
   };
 
   /**
@@ -51,307 +24,108 @@ export class NotificationService {
    */
   static async initialize(): Promise<void> {
     try {
-      if (!Device.isDevice) {
-        console.log(
-          '[Notifications] Must use physical device for push notifications'
-        );
-        return;
-      }
-
       // Request permissions
-      const { status: existingStatus } =
-        await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-
-      if (finalStatus !== 'granted') {
-        console.log('[Notifications] Permission not granted');
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        console.warn('[Notifications] Permission not granted');
         return;
       }
 
-      // Get push token
-      const token = await Notifications.getExpoPushTokenAsync();
-      console.log('[Notifications] Push token:', token.data);
+      // Configure notification channel for Android
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+        });
+      }
 
-      // Configure notification categories
-      await this.configureNotificationCategories();
-
-      this.isInitialized = true;
-      console.log('[Notifications] Service initialized');
+      console.log('[Notifications] Service initialized successfully');
     } catch (error) {
       console.error('[Notifications] Initialization failed:', error);
     }
   }
 
   /**
-   * Configure notification categories for actions
+   * Schedule daily reminders
    */
-  private static async configureNotificationCategories(): Promise<void> {
-    await Notifications.setNotificationCategoryAsync('meal_reminder', [
-      {
-        identifier: 'log_meal',
-        buttonTitle: 'Log Meal',
-        options: {
-          isDestructive: false,
-          isAuthenticationRequired: false,
-        },
-      },
-      {
-        identifier: 'snooze',
-        buttonTitle: 'Remind Later',
-        options: {
-          isDestructive: false,
-          isAuthenticationRequired: false,
-        },
-      },
-    ]);
-
-    await Notifications.setNotificationCategoryAsync('feedback_reminder', [
-      {
-        identifier: 'view_feedback',
-        buttonTitle: 'View Feedback',
-        options: {
-          isDestructive: false,
-          isAuthenticationRequired: false,
-        },
-      },
-      {
-        identifier: 'dismiss',
-        buttonTitle: 'Dismiss',
-        options: {
-          isDestructive: false,
-          isAuthenticationRequired: false,
-        },
-      },
-    ]);
-  }
-
-  /**
-   * Schedule all recurring notifications
-   */
-  static async scheduleRecurringNotifications(): Promise<void> {
-    if (!this.isInitialized) {
-      console.warn('[Notifications] Service not initialized');
-      return;
-    }
-
+  static async scheduleDailyReminders(): Promise<void> {
     try {
       // Cancel existing notifications
       await this.cancelAllNotifications();
 
-      // Schedule morning reminder
-      if (this.notificationSettings.morningReminder) {
-        await this.scheduleMorningReminder();
-      }
-
-      // Schedule lunch reminder
-      if (this.notificationSettings.lunchReminder) {
-        await this.scheduleLunchReminder();
-      }
-
-      // Schedule evening feedback
-      if (this.notificationSettings.eveningFeedback) {
-        await this.scheduleEveningFeedback();
-      }
-
-      // Schedule weekly check-in
-      if (this.notificationSettings.weeklyCheckIn) {
-        await this.scheduleWeeklyCheckIn();
-      }
-
-      console.log('[Notifications] All recurring notifications scheduled');
-    } catch (error) {
-      console.error('[Notifications] Failed to schedule notifications:', error);
-    }
-  }
-
-  /**
-   * Schedule morning meal planning reminder
-   */
-  private static async scheduleMorningReminder(): Promise<void> {
-    const [hours, minutes] = this.notificationSettings.morningTime
-      .split(':')
-      .map(Number);
-
-    await Notifications.scheduleNotificationAsync({
-      content: {
+      // Schedule morning planner (7:30 AM)
+      await this.scheduleNotification({
+        identifier: this.NOTIFICATION_IDS.MORNING_PLANNER,
         title: 'Good morning! 🌅',
-        body: 'Plan your meals for today to stay on track with your goals.',
-        categoryIdentifier: 'meal_reminder',
-        data: {
-          type: 'morning_reminder',
-          action: 'plan_meal',
-        },
-      },
-      trigger: {
-        type: 'calendar' as any,
-        hour: hours,
-        minute: minutes,
-        repeats: true,
-      },
-    });
-  }
-
-  /**
-   * Schedule lunch reminder
-   */
-  private static async scheduleLunchReminder(): Promise<void> {
-    const [hours, minutes] = this.notificationSettings.lunchTime
-      .split(':')
-      .map(Number);
-
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Lunch time! 🍽️',
-        body: "Don't forget to log your lunch to track your daily nutrition.",
-        categoryIdentifier: 'meal_reminder',
-        data: {
-          type: 'lunch_reminder',
-          action: 'log_meal',
-        },
-      },
-      trigger: {
-        type: 'calendar' as any,
-        hour: hours,
-        minute: minutes,
-        repeats: true,
-      },
-    });
-  }
-
-  /**
-   * Schedule evening feedback reminder
-   */
-  private static async scheduleEveningFeedback(): Promise<void> {
-    const [hours, minutes] = this.notificationSettings.eveningTime
-      .split(':')
-      .map(Number);
-
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Evening check-in 🌙',
-        body: 'Review your daily progress and get personalized tips for tomorrow.',
-        categoryIdentifier: 'feedback_reminder',
-        data: {
-          type: 'evening_feedback',
-          action: 'view_feedback',
-        },
-      },
-      trigger: {
-        type: 'calendar' as any,
-        hour: hours,
-        minute: minutes,
-        repeats: true,
-      },
-    });
-  }
-
-  /**
-   * Schedule weekly check-in
-   */
-  private static async scheduleWeeklyCheckIn(): Promise<void> {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Weekly progress check 📊',
-        body: "See how you're doing this week and get tips for next week.",
-        categoryIdentifier: 'feedback_reminder',
-        data: {
-          type: 'weekly_checkin',
-          action: 'view_feedback',
-        },
-      },
-      trigger: {
-        type: 'calendar' as any,
-        weekday: this.notificationSettings.weeklyDay + 1, // Expo uses 1-7
-        hour: 9,
-        minute: 0,
-        repeats: true,
-      },
-    });
-  }
-
-  /**
-   * Schedule immediate notification
-   */
-  static async scheduleImmediateNotification(
-    title: string,
-    body: string,
-    data?: Record<string, any>
-  ): Promise<string> {
-    if (!this.isInitialized) {
-      console.warn('[Notifications] Service not initialized');
-      return '';
-    }
-
-    try {
-      const notificationId = await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          data,
-        },
-        trigger: null, // Immediate
+        body: 'Plan your meals for today and start your day right',
+        hour: 7,
+        minute: 30,
+        deepLink: 'fiit://planner',
       });
 
-      return notificationId;
+      // Schedule lunch reminder (12:30 PM)
+      await this.scheduleNotification({
+        identifier: this.NOTIFICATION_IDS.LUNCH_REMINDER,
+        title: 'Lunch time! 🍽️',
+        body: 'Don\'t forget to log your lunch and stay on track',
+        hour: 12,
+        minute: 30,
+        deepLink: 'fiit://camera',
+      });
+
+      // Schedule evening feedback (8:00 PM)
+      await this.scheduleNotification({
+        identifier: this.NOTIFICATION_IDS.EVENING_FEEDBACK,
+        title: 'Evening check-in 🌙',
+        body: 'Review your progress and get tomorrow\'s tips',
+        hour: 20,
+        minute: 0,
+        deepLink: 'fiit://feedback',
+      });
+
+      console.log('[Notifications] Daily reminders scheduled');
     } catch (error) {
-      console.error(
-        '[Notifications] Failed to schedule immediate notification:',
-        error
-      );
-      return '';
+      console.error('[Notifications] Failed to schedule reminders:', error);
     }
   }
 
   /**
-   * Schedule delayed notification
+   * Schedule a single notification
    */
-  static async scheduleDelayedNotification(
-    title: string,
-    body: string,
-    delaySeconds: number,
-    data?: Record<string, any>
-  ): Promise<string> {
-    if (!this.isInitialized) {
-      console.warn('[Notifications] Service not initialized');
-      return '';
-    }
-
+  private static async scheduleNotification({
+    identifier,
+    title,
+    body,
+    hour,
+    minute,
+    deepLink,
+  }: {
+    identifier: string;
+    title: string;
+    body: string;
+    hour: number;
+    minute: number;
+    deepLink: string;
+  }): Promise<void> {
     try {
-      const notificationId = await Notifications.scheduleNotificationAsync({
+      await Notifications.scheduleNotificationAsync({
+        identifier,
         content: {
           title,
           body,
-          data,
+          data: { deepLink },
+          sound: true,
         },
         trigger: {
-          type: 'timeInterval' as any,
-          seconds: delaySeconds,
+          hour,
+          minute,
+          repeats: true,
         },
       });
-
-      return notificationId;
     } catch (error) {
-      console.error(
-        '[Notifications] Failed to schedule delayed notification:',
-        error
-      );
-      return '';
-    }
-  }
-
-  /**
-   * Cancel specific notification
-   */
-  static async cancelNotification(notificationId: string): Promise<void> {
-    try {
-      await Notifications.cancelScheduledNotificationAsync(notificationId);
-    } catch (error) {
-      console.error('[Notifications] Failed to cancel notification:', error);
+      console.error(`[Notifications] Failed to schedule ${identifier}:`, error);
     }
   }
 
@@ -361,102 +135,115 @@ export class NotificationService {
   static async cancelAllNotifications(): Promise<void> {
     try {
       await Notifications.cancelAllScheduledNotificationsAsync();
+      console.log('[Notifications] All notifications cancelled');
     } catch (error) {
-      console.error(
-        '[Notifications] Failed to cancel all notifications:',
-        error
-      );
+      console.error('[Notifications] Failed to cancel notifications:', error);
     }
   }
 
   /**
-   * Get notification settings
+   * Cancel specific notification
    */
-  static getNotificationSettings(): NotificationSettings {
-    return { ...this.notificationSettings };
-  }
-
-  /**
-   * Update notification settings
-   */
-  static async updateNotificationSettings(
-    settings: Partial<NotificationSettings>
-  ): Promise<void> {
-    this.notificationSettings = { ...this.notificationSettings, ...settings };
-
-    // Reschedule notifications with new settings
-    await this.scheduleRecurringNotifications();
-
-    // Track settings change
-    AnalyticsService.track('notification_settings_updated', settings);
-  }
-
-  /**
-   * Handle notification response
-   */
-  static handleNotificationResponse(
-    response: Notifications.NotificationResponse
-  ): void {
-    const { notification, actionIdentifier } = response;
-    const data = notification.request.content.data;
-
-    console.log('[Notifications] Notification response:', {
-      actionIdentifier,
-      data,
-    });
-
-    // Track notification interaction
-    AnalyticsService.track('notification_interaction', {
-      action: actionIdentifier,
-      notification_type: data?.type,
-      notification_action: data?.action,
-    });
-
-    // Handle specific actions
-    if (actionIdentifier === 'log_meal') {
-      // Navigate to meal logging screen
-      // This would be handled by the navigation system
-    } else if (actionIdentifier === 'view_feedback') {
-      // Navigate to feedback screen
-      // This would be handled by the navigation system
-    } else if (actionIdentifier === 'snooze') {
-      // Schedule reminder for later
-      this.scheduleDelayedNotification(
-        notification.request.content.title || 'Reminder',
-        notification.request.content.body || "Don't forget to log your meal!",
-        30 * 60, // 30 minutes
-        data
-      );
-    }
-  }
-
-  /**
-   * Get scheduled notifications
-   */
-  static async getScheduledNotifications(): Promise<
-    Notifications.NotificationRequest[]
-  > {
+  static async cancelNotification(identifier: string): Promise<void> {
     try {
-      return await Notifications.getAllScheduledNotificationsAsync();
+      await Notifications.cancelScheduledNotificationAsync(identifier);
+      console.log(`[Notifications] Cancelled notification: ${identifier}`);
     } catch (error) {
-      console.error(
-        '[Notifications] Failed to get scheduled notifications:',
-        error
-      );
-      return [];
+      console.error(`[Notifications] Failed to cancel ${identifier}:`, error);
     }
   }
 
   /**
-   * Check if notifications are enabled
+   * Send immediate notification
    */
-  static async areNotificationsEnabled(): Promise<boolean> {
+  static async sendImmediateNotification({
+    title,
+    body,
+    data,
+  }: {
+    title: string;
+    body: string;
+    data?: any;
+  }): Promise<void> {
     try {
-      const { status } = await Notifications.getPermissionsAsync();
-      return status === 'granted';
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data,
+          sound: true,
+        },
+        trigger: null, // Immediate
+      });
     } catch (error) {
-      console.error('[Notifications] Failed to check permissions:', error);
-      return false;
+      console.error('[Notifications] Failed to send immediate notification:', error);
+    }
+  }
+
+  /**
+   * Handle notification response (when user taps notification)
+   */
+  static handleNotificationResponse(response: Notifications.NotificationResponse): void {
+    try {
+      const data = response.notification.request.content.data;
+      const deepLink = data?.deepLink;
+
+      if (deepLink) {
+        // Handle deep linking
+        this.handleDeepLink(deepLink);
+      }
+    } catch (error) {
+      console.error('[Notifications] Failed to handle response:', error);
+    }
+  }
+
+  /**
+   * Handle deep link navigation
+   */
+  private static handleDeepLink(deepLink: string): void {
+    try {
+      // Parse deep link and navigate accordingly
+      if (deepLink.startsWith('fiit://')) {
+        const path = deepLink.replace('fiit://', '');
+        
+        switch (path) {
+          case 'planner':
+            // Navigate to meal planner
+            console.log('[Notifications] Navigate to planner');
+            break;
+          case 'camera':
+            // Navigate to camera
+            console.log('[Notifications] Navigate to camera');
+            break;
+          case 'feedback':
+            // Navigate to feedback
+            console.log('[Notifications] Navigate to feedback');
+            break;
+          default:
+            console.log(`[Notifications] Unknown deep link: ${path}`);
+        }
+      }
+    } catch (error) {
+      console.error('[Notifications] Failed to handle deep link:', error);
+    }
+  }
+
+  /**
+   * Get notification permissions status
+   */
+  static async getPermissionsStatus(): Promise<{
+    granted: boolean;
+    canAskAgain: boolean;
+  }> {
+    try {
+      const { status, canAskAgain } = await Notifications.getPermissionsAsync();
+      return {
+        granted: status === 'granted',
+        canAskAgain: canAskAgain,
+      };
+    } catch (error) {
+      console.error('[Notifications] Failed to get permissions status:', error);
+      return { granted: false, canAskAgain: false };
     }
   }
 
@@ -474,151 +261,74 @@ export class NotificationService {
   }
 
   /**
-   * Schedule daily reminder
+   * Get scheduled notifications
    */
-  static async scheduleDailyReminder(
-    hour: number,
-    minute: number
-  ): Promise<string> {
-    const trigger = {
-      hour,
-      minute,
-      repeats: true,
-      type: 'calendar' as any,
-    };
-
-    return await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Good morning! 🌅',
-        body: 'Ready to start your day with FIIT? Check your meal plan and log your breakfast.',
-        data: { screen: 'Home' },
-      },
-      trigger,
-    });
-  }
-
-  /**
-   * Send test notification
-   */
-  static async sendTestNotification(): Promise<string> {
-    return await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Test Notification',
-        body: 'This is a test notification from FIIT',
-        data: { test: true },
-      },
-      trigger: null,
-    });
-  }
-
-  /**
-   * Schedule all FIIT reminders
-   */
-  static async scheduleAllFIITReminders(): Promise<boolean> {
+  static async getScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {
     try {
-      // Schedule morning reminder
-      await this.scheduleDailyReminder(9, 0);
-
-      // Schedule lunch reminder
-      await this.scheduleDailyReminder(12, 0);
-
-      // Schedule evening feedback
-      await this.scheduleDailyReminder(19, 0);
-
-      return true;
+      return await Notifications.getAllScheduledNotificationsAsync();
     } catch (error) {
-      console.error('[Notifications] Failed to schedule reminders:', error);
-      return false;
+      console.error('[Notifications] Failed to get scheduled notifications:', error);
+      return [];
     }
   }
-}
 
-// Hook for easy notification integration
-export const useNotifications = () => {
-  const scheduleImmediate = (
-    title: string,
-    body: string,
-    data?: Record<string, any>
-  ) => {
-    return NotificationService.scheduleImmediateNotification(title, body, data);
-  };
-
-  const scheduleDelayed = (
-    title: string,
-    body: string,
-    delaySeconds: number,
-    data?: Record<string, any>
-  ) => {
-    return NotificationService.scheduleDelayedNotification(
-      title,
-      body,
-      delaySeconds,
-      data
-    );
-  };
-
-  const scheduleDailyReminder = async (hour: number, minute: number) => {
-    const trigger = {
-      hour,
-      minute,
-      repeats: true,
-      type: 'calendar' as any,
+  /**
+   * Send meal logging reminder
+   */
+  static async sendMealReminder(mealType: 'breakfast' | 'lunch' | 'dinner'): Promise<void> {
+    const messages = {
+      breakfast: {
+        title: 'Breakfast time! 🥞',
+        body: 'Start your day with a nutritious breakfast',
+      },
+      lunch: {
+        title: 'Lunch time! 🍽️',
+        body: 'Don\'t forget to log your lunch',
+      },
+      dinner: {
+        title: 'Dinner time! 🍽️',
+        body: 'End your day with a healthy dinner',
+      },
     };
 
-    return await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Good morning! 🌅',
-        body: 'Ready to start your day with FIIT? Check your meal plan and log your breakfast.',
-        data: { screen: 'Home' },
-      },
-      trigger,
+    const message = messages[mealType];
+    await this.sendImmediateNotification({
+      title: message.title,
+      body: message.body,
+      data: { deepLink: 'fiit://camera' },
     });
-  };
+  }
 
-  const sendTestNotification = async () => {
-    return await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Test Notification',
-        body: 'This is a test notification from FIIT',
-        data: { test: true },
-      },
-      trigger: null,
+  /**
+   * Send achievement notification
+   */
+  static async sendAchievementNotification(achievement: string): Promise<void> {
+    await this.sendImmediateNotification({
+      title: 'Achievement Unlocked! 🏆',
+      body: achievement,
+      data: { deepLink: 'fiit://achievements' },
     });
-  };
+  }
 
-  const scheduleAllFIITReminders = async () => {
-    // Schedule morning reminder
-    await scheduleDailyReminder(9, 0);
+  /**
+   * Send streak reminder
+   */
+  static async sendStreakReminder(streak: number): Promise<void> {
+    await this.sendImmediateNotification({
+      title: `${streak} Day Streak! 🔥`,
+      body: 'Keep it up! You\'re building a healthy habit.',
+      data: { deepLink: 'fiit://progress' },
+    });
+  }
 
-    // Schedule lunch reminder
-    await scheduleDailyReminder(12, 0);
-
-    // Schedule evening feedback
-    await scheduleDailyReminder(19, 0);
-
-    return true;
-  };
-
-  const cancelNotification = (notificationId: string) => {
-    return NotificationService.cancelNotification(notificationId);
-  };
-
-  const updateSettings = (settings: Partial<NotificationSettings>) => {
-    return NotificationService.updateNotificationSettings(settings);
-  };
-
-  const getSettings = () => {
-    return NotificationService.getNotificationSettings();
-  };
-
-  return {
-    scheduleImmediate,
-    scheduleDelayed,
-    cancelNotification,
-    updateSettings,
-    getSettings,
-    scheduleDailyReminder,
-    sendTestNotification,
-    scheduleAllFIITReminders,
-  };
-};
+  /**
+   * Send weight logging reminder
+   */
+  static async sendWeightReminder(): Promise<void> {
+    await this.sendImmediateNotification({
+      title: 'Weight Check-in 📊',
+      body: 'Time to log your weight and track your progress',
+      data: { deepLink: 'fiit://weight' },
+    });
+  }
+}
