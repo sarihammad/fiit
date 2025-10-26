@@ -196,14 +196,14 @@ export class PaywallService {
         console.log('[Paywall] RevenueCat not available, using mock purchase');
         return {
           success: true,
-          data: { 
+          data: {
             packageId,
             tier: 'pro',
             isInTrial: true,
           },
         };
       }
-      
+
       const request: PurchaseRequest = { packageId };
       const response = await http.post('/purchases/purchase', request);
 
@@ -237,7 +237,7 @@ export class PaywallService {
 
       const request: RestorePurchasesRequest = {};
       const response = await http.post('/purchases/restore', request);
-      
+
       return {
         success: true,
         data: response,

@@ -80,3 +80,4 @@ export type LogWeightResponse = z.infer<typeof LogWeightResponseSchema>;
 export type GetWeightEntriesResponse = z.infer<
   typeof GetWeightEntriesResponseSchema
 >;
+

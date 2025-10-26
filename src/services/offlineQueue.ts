@@ -25,7 +25,7 @@ export class OfflineQueueService {
   ): Promise<void> {
     try {
       const queue = await this.getQueue();
-      
+
       const queuedItem: QueuedMealLog = {
         id: `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         request,
@@ -75,26 +75,29 @@ export class OfflineQueueService {
       try {
         // Attempt to log the meal
         await http.post<LogMealRequest>('/meals/log', item.request);
-        
+
         // Remove from queue on success
         await this.removeFromQueue(item.id);
         successCount++;
-        
+
         console.log(`[OfflineQueue] Successfully processed item: ${item.id}`);
       } catch (error) {
         // Increment retry count
         item.retryCount++;
-        item.lastError = error instanceof Error ? error.message : 'Unknown error';
-        
+        item.lastError =
+          error instanceof Error ? error.message : 'Unknown error';
+
         // Remove from queue if max retries exceeded
         if (item.retryCount >= 3) {
           await this.removeFromQueue(item.id);
-          console.log(`[OfflineQueue] Max retries exceeded for item: ${item.id}`);
+          console.log(
+            `[OfflineQueue] Max retries exceeded for item: ${item.id}`
+          );
         } else {
           // Update the item in queue
           await this.updateQueueItem(item);
         }
-        
+
         failedCount++;
         console.log(`[OfflineQueue] Failed to process item: ${item.id}`, error);
       }
@@ -110,7 +113,10 @@ export class OfflineQueueService {
     try {
       const queue = await this.getQueue();
       const updatedQueue = queue.filter(item => item.id !== itemId);
-      await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(updatedQueue));
+      await AsyncStorage.setItem(
+        OFFLINE_QUEUE_KEY,
+        JSON.stringify(updatedQueue)
+      );
     } catch (error) {
       console.error('[OfflineQueue] Failed to remove from queue:', error);
     }
@@ -123,7 +129,7 @@ export class OfflineQueueService {
     try {
       const queue = await this.getQueue();
       const index = queue.findIndex(item => item.id === updatedItem.id);
-      
+
       if (index !== -1) {
         queue[index] = updatedItem;
         await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
@@ -154,7 +160,7 @@ export class OfflineQueueService {
     newestItem?: string;
   }> {
     const queue = await this.getQueue();
-    
+
     if (queue.length === 0) {
       return { totalItems: 0 };
     }
@@ -170,3 +176,4 @@ export class OfflineQueueService {
     };
   }
 }
+

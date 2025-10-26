@@ -113,3 +113,4 @@ export type GenerateMealPlanResponse = z.infer<
   typeof GenerateMealPlanResponseSchema
 >;
 export type GetMealPlansResponse = z.infer<typeof GetMealPlansResponseSchema>;
+

@@ -359,12 +359,9 @@ export const usePaywallStore = create<PaywallState>()(
       hydrateOnAppStart: async () => {
         try {
           set({ isLoading: true });
-          
+
           // Load offerings and customer info
-          await Promise.all([
-            get().refresh(),
-            get().checkRescueOffer(),
-          ]);
+          await Promise.all([get().refresh(), get().checkRescueOffer()]);
         } catch (error) {
           console.error('Failed to hydrate paywall on app start:', error);
         } finally {

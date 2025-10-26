@@ -1,0 +1,64 @@
+# Gitleaks Configuration
+
+# This configuration helps prevent secrets from being committed to the repository
+
+[detectors]
+# API Keys
+- name: "API Key"
+  regex: '''(?i)(api[_-]?key|apikey|api_key)\s*[:=]\s*["\']?[a-zA-Z0-9]{20,}["\']?'''
+  confidence: "high"
+
+- name: "Secret Key"
+  regex: '''(?i)(secret[_-]?key|secretkey|secret_key)\s*[:=]\s*["\']?[a-zA-Z0-9]{20,}["\']?'''
+  confidence: "high"
+
+- name: "Access Token"
+  regex: '''(?i)(access[_-]?token|accesstoken|access_token)\s*[:=]\s*["\']?[a-zA-Z0-9]{20,}["\']?'''
+  confidence: "high"
+
+- name: "Bearer Token"
+  regex: '''(?i)(bearer[_-]?token|bearertoken|bearer_token)\s*[:=]\s*["\']?[a-zA-Z0-9]{20,}["\']?'''
+  confidence: "high"
+
+# Database Credentials
+- name: "Database URL"
+  regex: '''(?i)(database[_-]?url|db[_-]?url|database_url)\s*[:=]\s*["\']?[a-zA-Z0-9+/=]{20,}["\']?'''
+  confidence: "high"
+
+- name: "Database Password"
+  regex: '''(?i)(database[_-]?password|db[_-]?password|database_password)\s*[:=]\s*["\']?[a-zA-Z0-9]{8,}["\']?'''
+  confidence: "high"
+
+# JWT Tokens
+- name: "JWT Token"
+  regex: '''(?i)(jwt[_-]?token|jwttoken|jwt_token)\s*[:=]\s*["\']?[a-zA-Z0-9._-]{20,}["\']?'''
+  confidence: "high"
+
+# Private Keys
+- name: "Private Key"
+  regex: '''(?i)(private[_-]?key|privatekey|private_key)\s*[:=]\s*["\']?-----BEGIN [A-Z ]+-----'''
+  confidence: "high"
+
+# OAuth Credentials
+- name: "OAuth Client Secret"
+  regex: '''(?i)(oauth[_-]?client[_-]?secret|oauthclientsecret|oauth_client_secret)\s*[:=]\s*["\']?[a-zA-Z0-9]{20,}["\']?'''
+  confidence: "high"
+
+# Service Account Keys
+- name: "Service Account Key"
+  regex: '''(?i)(service[_-]?account[_-]?key|serviceaccountkey|service_account_key)\s*[:=]\s*["\']?[a-zA-Z0-9+/=]{20,}["\']?'''
+  confidence: "high"
+
+# Exclude common false positives
+[exclusions]
+- name: "Example Files"
+  regex: '''\.example$|\.template$|\.sample$'''
+  confidence: "low"
+
+- name: "Test Files"
+  regex: '''\.test\.|\.spec\.|__tests__|test/'''
+  confidence: "low"
+
+- name: "Documentation"
+  regex: '''\.md$|\.txt$|README|CHANGELOG'''
+  confidence: "low"

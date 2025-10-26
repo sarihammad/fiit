@@ -93,7 +93,7 @@ export class AuthService {
         isNewUser: response.isNewUser,
         success: true,
       };
-  } catch (error) {
+    } catch (error) {
       console.error('Apple Sign-In error:', error);
       throw this.handleAuthError(error);
     }

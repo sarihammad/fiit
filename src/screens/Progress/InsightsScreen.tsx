@@ -1,11 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useFeedbackStore } from '@/state/feedback.store';
 import { useNutritionStore } from '@/state/nutrition.store';
 import { Card } from '@/components/Card';
 import { MaterialIcons } from '@expo/vector-icons';
-import { FeedbackService, FeedbackContext, NutritionData } from '@/services/feedback';
+import {
+  FeedbackService,
+  FeedbackContext,
+  NutritionData,
+} from '@/services/feedback';
 import { CoachFeedback } from '@/types/api/feedback';
 
 export const InsightsScreen: React.FC = () => {
@@ -13,7 +23,9 @@ export const InsightsScreen: React.FC = () => {
   const { feedbackHistory } = useFeedbackStore();
   const { getStats } = useNutritionStore();
 
-  const [dailyFeedback, setDailyFeedback] = useState<CoachFeedback | null>(null);
+  const [dailyFeedback, setDailyFeedback] = useState<CoachFeedback | null>(
+    null
+  );
   const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
 
   const stats = getStats(30);
@@ -47,7 +59,10 @@ export const InsightsScreen: React.FC = () => {
         targetFat: 65, // TODO: Get from user goals
       };
 
-      const feedback = await FeedbackService.generateFeedback(context, nutritionData);
+      const feedback = await FeedbackService.generateFeedback(
+        context,
+        nutritionData
+      );
       setDailyFeedback(feedback);
     } catch (error) {
       console.error('Failed to generate daily feedback:', error);
@@ -83,7 +98,13 @@ export const InsightsScreen: React.FC = () => {
 
       {/* Daily Feedback Card */}
       <Card style={{ marginBottom: 16 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 16,
+          }}
+        >
           <MaterialIcons
             name="lightbulb"
             size={24}
@@ -103,7 +124,10 @@ export const InsightsScreen: React.FC = () => {
 
         {isLoadingFeedback ? (
           <View style={{ alignItems: 'center', padding: 20 }}>
-            <ActivityIndicator size="small" color={theme.colors.brand.primary} />
+            <ActivityIndicator
+              size="small"
+              color={theme.colors.brand.primary}
+            />
             <Text style={{ marginTop: 8, color: theme.colors.text.secondary }}>
               Generating your personalized feedback...
             </Text>

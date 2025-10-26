@@ -25,7 +25,10 @@ function App() {
         await NotificationService.initialize();
         console.log('[App] Notification service initialized');
       } catch (error) {
-        console.error('[App] Failed to initialize notification service:', error);
+        console.error(
+          '[App] Failed to initialize notification service:',
+          error
+        );
       }
     };
 
@@ -36,10 +39,10 @@ function App() {
       }
     );
 
-    const responseListener = Notifications.addNotificationResponseReceivedListener(
-      response => {
+    const responseListener =
+      Notifications.addNotificationResponseReceivedListener(response => {
         console.log('[App] Notification response received:', response);
-        
+
         // Handle deep linking based on notification data
         const data = response.notification.request.content.data;
         if (data?.action) {
@@ -47,8 +50,7 @@ function App() {
           // For now, just log the action
           console.log('[App] Deep link action:', data.action);
         }
-      }
-    );
+      });
 
     initializeNotifications();
 

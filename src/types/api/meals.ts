@@ -91,12 +91,14 @@ export const ConfirmMealRequestSchema = z.object({
   predictionId: z.string(),
   selectedLabel: z.string(),
   portionSize: z.number().min(0),
-  adjustments: z.object({
-    calories: z.number().optional(),
-    protein: z.number().optional(),
-    carbs: z.number().optional(),
-    fat: z.number().optional(),
-  }).optional(),
+  adjustments: z
+    .object({
+      calories: z.number().optional(),
+      protein: z.number().optional(),
+      carbs: z.number().optional(),
+      fat: z.number().optional(),
+    })
+    .optional(),
 });
 
 export const ConfirmMealResponseSchema = z.object({
@@ -114,6 +116,8 @@ export type DeleteMealRequest = z.infer<typeof DeleteMealRequestSchema>;
 export type LogMealResponse = z.infer<typeof LogMealResponseSchema>;
 export type GetMealsResponse = z.infer<typeof GetMealsResponseSchema>;
 export type MealPrediction = z.infer<typeof MealPredictionSchema>;
-export type MealPredictionResponse = z.infer<typeof MealPredictionResponseSchema>;
+export type MealPredictionResponse = z.infer<
+  typeof MealPredictionResponseSchema
+>;
 export type ConfirmMealRequest = z.infer<typeof ConfirmMealRequestSchema>;
 export type ConfirmMealResponse = z.infer<typeof ConfirmMealResponseSchema>;

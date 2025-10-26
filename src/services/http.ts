@@ -195,25 +195,29 @@ export const http = {
     maxRetries: number = MAX_RETRIES
   ): Promise<T> {
     let lastError: any;
-    
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const response = await httpClient.get<T>(url, config);
         return response.data;
       } catch (error) {
         lastError = error;
-        
+
         // Don't retry on client errors (4xx) or if it's the last attempt
-        if (attempt === maxRetries || (error as AxiosError).response?.status && (error as AxiosError).response!.status < 500) {
+        if (
+          attempt === maxRetries ||
+          ((error as AxiosError).response?.status &&
+            (error as AxiosError).response!.status < 500)
+        ) {
           throw error;
         }
-        
+
         // Exponential backoff delay
         const delay = RETRY_DELAY * Math.pow(2, attempt);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
-    
+
     throw lastError;
   },
 };

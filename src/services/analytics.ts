@@ -321,7 +321,14 @@ export class AnalyticsService {
    * Track funnel events for conversion analysis
    */
   static trackFunnelEvent(
-    step: 'install' | 'onboarding_start' | 'onboarding_complete' | 'first_log' | 'trial_start' | 'purchase' | 'feedback_viewed',
+    step:
+      | 'install'
+      | 'onboarding_start'
+      | 'onboarding_complete'
+      | 'first_log'
+      | 'trial_start'
+      | 'purchase'
+      | 'feedback_viewed',
     properties?: Record<string, any>
   ): void {
     const event: AnalyticsEvent = {
@@ -358,10 +365,7 @@ export class AnalyticsService {
   /**
    * Track paywall view
    */
-  static trackPaywallView(
-    source: string,
-    tier?: string
-  ): void {
+  static trackPaywallView(source: string, tier?: string): void {
     const event: AnalyticsEvent = {
       name: 'paywall_viewed',
       properties: {

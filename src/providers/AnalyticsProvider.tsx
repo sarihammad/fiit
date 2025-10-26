@@ -24,14 +24,14 @@ if (SENTRY_DSN) {
       if (__DEV__) {
         return null;
       }
-      
+
       // Add custom tags
       event.tags = {
         ...event.tags,
         platform: 'mobile',
         app: 'fiit',
       };
-      
+
       return event;
     },
   });

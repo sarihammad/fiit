@@ -466,13 +466,13 @@ export async function logMealWithOfflineQueue(
     return response;
   } catch (error) {
     console.error('[FoodService] Failed to log meal online:', error);
-    
+
     // Add to offline queue for retry later
     await OfflineQueueService.addToQueue(
       request,
       error instanceof Error ? error.message : 'Unknown error'
     );
-    
+
     console.log('[FoodService] Meal added to offline queue');
     return null;
   }
