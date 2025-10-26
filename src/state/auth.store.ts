@@ -2,8 +2,9 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthService, AuthResult } from '@/services/auth';
-import { User } from '@/types/api/auth';
+import { User, AuthTokens } from '@/types/api';
 
+// Auth state interface
 export interface AuthState {
   // State
   user: User | null;
@@ -13,35 +14,19 @@ export interface AuthState {
   didSkip: boolean;
 
   // Actions
-  signIn: (user: User) => void;
-  signOut: () => Promise<void>;
-  setLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
-  clearError: () => void;
-  skipAuth: () => void;
-
-  // Auth methods
-  signInWithEmail: (email: string, password: string) => Promise<boolean>;
-  signUpWithEmail: (
-    email: string,
-    password: string,
-    name: string
-  ) => Promise<boolean>;
-  signInWithGoogle: () => Promise<boolean>;
-  signInWithApple: () => Promise<boolean>;
-  createAnonymousAccount: () => Promise<boolean>;
-
-  // Initialization
   initializeAuth: () => Promise<void>;
-  checkAuthStatus: () => Promise<boolean>;
-
-  // Additional required methods
   ensureGuest: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<boolean>;
+  signUpWithEmail: (email: string, password: string, name: string) => Promise<boolean>;
   signInGoogle: () => Promise<boolean>;
   signInApple: () => Promise<boolean>;
+  createAnonymousAccount: () => Promise<void>;
+  signOut: () => Promise<void>;
   reset: () => void;
+  clearError: () => void;
 }
 
+// Create auth store
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -52,290 +37,35 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       didSkip: false,
 
-      // Basic actions
-      signIn: (user: User) => {
-        set({
-          user,
-          isAuthenticated: true,
-          error: null,
-          didSkip: false,
-        });
-      },
-
-      signOut: async () => {
+      // Initialize authentication on app start
+      initializeAuth: async (): Promise<void> => {
         try {
-          await AuthService.signOut();
-          set({
-            user: null,
-            isAuthenticated: false,
-            error: null,
-            didSkip: false,
-          });
-        } catch (error) {
-          console.error('Error signing out:', error);
-          // Still clear local state even if server logout fails
-          set({
-            user: null,
-            isAuthenticated: false,
-            error: null,
-            didSkip: false,
-          });
-        }
-      },
+          set({ isLoading: true, error: null });
 
-      setLoading: (loading: boolean) => {
-        set({ isLoading: loading });
-      },
-
-      setError: (error: string | null) => {
-        set({ error });
-      },
-
-      clearError: () => {
-        set({ error: null });
-      },
-
-      skipAuth: () => {
-        set({ didSkip: true });
-      },
-
-      // Authentication methods
-      signInWithEmail: async (
-        email: string,
-        password: string
-      ): Promise<boolean> => {
-        set({ isLoading: true, error: null });
-
-        try {
-          const result: AuthResult = await AuthService.signInWithEmail(
-            email,
-            password
-          );
-
-          if (result && result.success && result.user) {
-            set({
-              user: result.user,
-              isAuthenticated: true,
-              isLoading: false,
-              error: null,
-              didSkip: false,
-            });
-            return true;
-          } else {
-            set({
-              isLoading: false,
-              error: result.error || 'Sign in failed',
-            });
-            return false;
-          }
-        } catch (error: any) {
-          set({
-            isLoading: false,
-            error: error.message || 'Sign in failed',
-          });
-          return false;
-        }
-      },
-
-      signUpWithEmail: async (
-        email: string,
-        password: string,
-        name: string
-      ): Promise<boolean> => {
-        set({ isLoading: true, error: null });
-
-        try {
-          const result: AuthResult = await AuthService.signUpWithEmail(
-            email,
-            password,
-            name
-          );
-
-          if (result && result.success && result.user) {
-            set({
-              user: result.user,
-              isAuthenticated: true,
-              isLoading: false,
-              error: null,
-              didSkip: false,
-            });
-            return true;
-          } else {
-            set({
-              isLoading: false,
-              error: result.error || 'Sign up failed',
-            });
-            return false;
-          }
-        } catch (error: any) {
-          set({
-            isLoading: false,
-            error: error.message || 'Sign up failed',
-          });
-          return false;
-        }
-      },
-
-      signInWithGoogle: async (): Promise<boolean> => {
-        set({ isLoading: true, error: null });
-
-        try {
-          const result = await AuthService.signInWithGoogle();
-
-          if (result && result.success && result.user) {
-            set({
-              user: result.user,
-              isAuthenticated: true,
-              isLoading: false,
-              error: null,
-              didSkip: false,
-            });
-            return true;
-          } else {
-            set({
-              isLoading: false,
-              error: result?.error || 'Google sign in failed',
-            });
-            return false;
-          }
-        } catch (error: any) {
-          set({
-            isLoading: false,
-            error: error.message || 'Google sign in failed',
-          });
-          return false;
-        }
-      },
-
-      signInWithApple: async (): Promise<boolean> => {
-        set({ isLoading: true, error: null });
-
-        try {
-          const result = await AuthService.signInWithApple();
-
-          if (result && result.success && result.user) {
-            set({
-              user: result.user,
-              isAuthenticated: true,
-              isLoading: false,
-              error: null,
-              didSkip: false,
-            });
-            return true;
-          } else {
-            set({
-              isLoading: false,
-              error: result?.error || 'Apple sign in failed',
-            });
-            return false;
-          }
-        } catch (error: any) {
-          set({
-            isLoading: false,
-            error: error.message || 'Apple sign in failed',
-          });
-          return false;
-        }
-      },
-
-      createAnonymousAccount: async (): Promise<boolean> => {
-        set({ isLoading: true, error: null });
-
-        try {
-          const result = await AuthService.createAnonymous();
-
-          if (result && result.success && result.user) {
-            set({
-              user: result.user,
-              isAuthenticated: true,
-              isLoading: false,
-              error: null,
-              didSkip: true,
-            });
-            return true;
-          } else {
-            set({
-              isLoading: false,
-              error: result.error || 'Failed to create anonymous account',
-            });
-            return false;
-          }
-        } catch (error: any) {
-          set({
-            isLoading: false,
-            error: error.message || 'Failed to create anonymous account',
-          });
-          return false;
-        }
-      },
-
-      // Initialization
-      initializeAuth: async () => {
-        set({ isLoading: true });
-
-        try {
           const isAuthenticated = await AuthService.isAuthenticated();
-
           if (isAuthenticated) {
             const user = await AuthService.getCurrentUser();
-            if (user) {
-              set({
-                user,
-                isAuthenticated: true,
-                isLoading: false,
-                error: null,
-              });
-            } else {
-              set({
-                user: null,
-                isAuthenticated: false,
-                isLoading: false,
-                error: null,
-              });
-            }
+            set({ 
+              user, 
+              isAuthenticated: true, 
+              isLoading: false 
+            });
           } else {
-            set({
-              user: null,
-              isAuthenticated: false,
-              isLoading: false,
-              error: null,
+            set({ 
+              isAuthenticated: false, 
+              isLoading: false 
             });
           }
         } catch (error) {
-          console.error('Error initializing auth:', error);
-          set({
-            user: null,
-            isAuthenticated: false,
-            isLoading: false,
-            error: null,
+          console.error('Auth initialization error:', error);
+          set({ 
+            error: 'Failed to initialize authentication', 
+            isLoading: false 
           });
         }
       },
 
-      checkAuthStatus: async (): Promise<boolean> => {
-        try {
-          const isAuthenticated = await AuthService.isAuthenticated();
-          const user = isAuthenticated
-            ? await AuthService.getCurrentUser()
-            : null;
-
-          set({
-            user,
-            isAuthenticated: !!isAuthenticated,
-          });
-
-          return !!isAuthenticated;
-        } catch (error) {
-          console.error('Error checking auth status:', error);
-          set({
-            user: null,
-            isAuthenticated: false,
-          });
-          return false;
-        }
-      },
-
-      // Additional required methods
+      // Ensure guest account exists
       ensureGuest: async (): Promise<void> => {
         const state = get();
         if (!state.isAuthenticated && !state.didSkip) {
@@ -343,14 +73,187 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      // Sign in with email and password
+      signInWithEmail: async (email: string, password: string): Promise<boolean> => {
+        try {
+          set({ isLoading: true, error: null });
+
+          const result = await AuthService.signInWithEmail(email, password);
+          if (result?.success) {
+            set({
+              user: result.user,
+              isAuthenticated: true,
+              isLoading: false,
+              didSkip: false,
+            });
+            return true;
+          } else {
+            set({
+              error: result?.error || 'Sign in failed',
+              isLoading: false,
+            });
+            return false;
+          }
+        } catch (error) {
+          console.error('Sign in error:', error);
+          set({
+            error: 'Sign in failed. Please try again.',
+            isLoading: false,
+          });
+          return false;
+        }
+      },
+
+      // Sign up with email and password
+      signUpWithEmail: async (email: string, password: string, name: string): Promise<boolean> => {
+        try {
+          set({ isLoading: true, error: null });
+
+          const result = await AuthService.signUpWithEmail(email, password, name);
+          if (result?.success) {
+            set({
+              user: result.user,
+              isAuthenticated: true,
+              isLoading: false,
+              didSkip: false,
+            });
+            return true;
+          } else {
+            set({
+              error: result?.error || 'Sign up failed',
+              isLoading: false,
+            });
+            return false;
+          }
+        } catch (error) {
+          console.error('Sign up error:', error);
+          set({
+            error: 'Sign up failed. Please try again.',
+            isLoading: false,
+          });
+          return false;
+        }
+      },
+
+      // Sign in with Google
       signInGoogle: async (): Promise<boolean> => {
-        return await get().signInWithGoogle();
+        try {
+          set({ isLoading: true, error: null });
+
+          const result = await AuthService.signInWithGoogle();
+          if (result?.success) {
+            set({
+              user: result.user,
+              isAuthenticated: true,
+              isLoading: false,
+              didSkip: false,
+            });
+            return true;
+          } else if (result === null) {
+            // User cancelled
+            set({ isLoading: false });
+            return false;
+          } else {
+            set({
+              error: result?.error || 'Google sign in failed',
+              isLoading: false,
+            });
+            return false;
+          }
+        } catch (error) {
+          console.error('Google sign in error:', error);
+          set({
+            error: 'Google sign in failed. Please try again.',
+            isLoading: false,
+          });
+          return false;
+        }
       },
 
+      // Sign in with Apple
       signInApple: async (): Promise<boolean> => {
-        return await get().signInWithApple();
+        try {
+          set({ isLoading: true, error: null });
+
+          const result = await AuthService.signInWithApple();
+          if (result?.success) {
+            set({
+              user: result.user,
+              isAuthenticated: true,
+              isLoading: false,
+              didSkip: false,
+            });
+            return true;
+          } else {
+            set({
+              error: result?.error || 'Apple sign in failed',
+              isLoading: false,
+            });
+            return false;
+          }
+        } catch (error) {
+          console.error('Apple sign in error:', error);
+          set({
+            error: 'Apple sign in failed. Please try again.',
+            isLoading: false,
+          });
+          return false;
+        }
       },
 
+      // Create anonymous account
+      createAnonymousAccount: async (): Promise<void> => {
+        try {
+          set({ isLoading: true, error: null });
+
+          const result = await AuthService.createGuest();
+          if (result?.success) {
+            set({
+              user: result.user,
+              isAuthenticated: true,
+              isLoading: false,
+              didSkip: false,
+            });
+          } else {
+            set({
+              error: result?.error || 'Failed to create guest account',
+              isLoading: false,
+              didSkip: true,
+            });
+          }
+        } catch (error) {
+          console.error('Guest account creation error:', error);
+          set({
+            error: 'Failed to create guest account',
+            isLoading: false,
+            didSkip: true,
+          });
+        }
+      },
+
+      // Sign out
+      signOut: async (): Promise<void> => {
+        try {
+          set({ isLoading: true, error: null });
+
+          await AuthService.signOutServerSide();
+
+          set({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            didSkip: false,
+          });
+        } catch (error) {
+          console.error('Sign out error:', error);
+          set({
+            error: 'Sign out failed',
+            isLoading: false,
+          });
+        }
+      },
+
+      // Reset state
       reset: (): void => {
         set({
           user: null,
@@ -360,15 +263,41 @@ export const useAuthStore = create<AuthState>()(
           didSkip: false,
         });
       },
+
+      // Clear error
+      clearError: (): void => {
+        set({ error: null });
+      },
     }),
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: state => ({
-        user: state.user,
+      // Only persist minimal state to avoid storing sensitive data
+      partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         didSkip: state.didSkip,
       }),
     }
   )
 );
+
+// Selectors for better performance
+export const useAuthUser = () => useAuthStore((state) => state.user);
+export const useAuthLoading = () => useAuthStore((state) => state.isLoading);
+export const useAuthError = () => useAuthStore((state) => state.error);
+export const useIsAuthenticated = () => useAuthStore((state) => state.isAuthenticated);
+export const useDidSkip = () => useAuthStore((state) => state.didSkip);
+
+// Action selectors
+export const useAuthActions = () => useAuthStore((state) => ({
+  initializeAuth: state.initializeAuth,
+  ensureGuest: state.ensureGuest,
+  signInWithEmail: state.signInWithEmail,
+  signUpWithEmail: state.signUpWithEmail,
+  signInGoogle: state.signInGoogle,
+  signInApple: state.signInApple,
+  createAnonymousAccount: state.createAnonymousAccount,
+  signOut: state.signOut,
+  reset: state.reset,
+  clearError: state.clearError,
+}));
