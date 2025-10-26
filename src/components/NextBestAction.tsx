@@ -1,350 +1,225 @@
-// Next Best Action component with dynamic feedback service integration
-import React from 'react';
-import {
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  View,
-  ActivityIndicator,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '@/providers/ThemeProvider';
-import {
-  FeedbackService,
-  FeedbackContext,
-  NutritionData,
-} from '@/services/feedback';
-
-type ActionType =
-  | 'log_meal'
-  | 'plan_meal'
-  | 'add_weight'
-  | 'view_feedback'
-  | 'exercise';
+import { useAuthStore } from '@/state/auth.store';
+import { useMealStore } from '@/state/meal.store';
+import { useWeightStore } from '@/state/weight.store';
 
 interface NextBestActionProps {
-  context: FeedbackContext;
-  nutritionData: NutritionData;
-  onPress: (actionType: ActionType) => void;
-  isLoading?: boolean;
-  lastMealTime?: Date;
+  onAction: (actionType: string) => void;
 }
 
-const actionConfig = {
-  log_meal: {
-    icon: 'photo-camera' as keyof typeof MaterialIcons.glyphMap,
-    gradient: ['#10B981', '#059669'],
-  },
-  plan_meal: {
-    icon: 'restaurant' as keyof typeof MaterialIcons.glyphMap,
-    gradient: ['#8B5CF6', '#7C3AED'],
-  },
-  add_weight: {
-    icon: 'monitor-weight' as keyof typeof MaterialIcons.glyphMap,
-    gradient: ['#F59E0B', '#D97706'],
-  },
-  view_feedback: {
-    icon: 'tips-and-updates' as keyof typeof MaterialIcons.glyphMap,
-    gradient: ['#3B82F6', '#2563EB'],
-  },
-  exercise: {
-    icon: 'fitness-center' as keyof typeof MaterialIcons.glyphMap,
-    gradient: ['#EF4444', '#DC2626'],
-  },
-};
-
-export const NextBestAction: React.FC<NextBestActionProps> = ({
-  context,
-  nutritionData,
-  onPress,
-  isLoading = false,
-  lastMealTime,
-}) => {
-  const { theme } = useTheme();
-
-  // Generate the next best action based on context
-  const nextAction = FeedbackService.generateNextBestAction(
-    context,
-    nutritionData,
-    lastMealTime
-  );
-
-  const config = actionConfig[nextAction.actionType as ActionType];
-  const priorityColors = {
-    high: theme?.colors?.error?.[500] || '#ef4444',
-    medium: theme?.colors?.warning?.[500] || '#f59e0b',
-    low: theme?.colors?.success?.[500] || '#22c55e',
-  };
-
-  const handlePress = () => {
-    onPress(nextAction.actionType as ActionType);
-  };
-
-  if (isLoading) {
-    return (
-      <View
-        style={[
-          styles.container,
-          { backgroundColor: theme?.colors?.surface?.primary || '#ffffff' },
-        ]}
-      >
-        <ActivityIndicator
-          size="small"
-          color={theme?.colors?.brand?.primary || '#22c55e'}
-        />
-        <Text
-          style={[
-            styles.loadingText,
-            { color: theme?.colors?.text?.secondary || '#666666' },
-          ]}
-        >
-          Loading next action...
-        </Text>
-      </View>
-    );
-  }
-
-  return (
-    <TouchableOpacity
-      style={[
-        styles.container,
-        {
-          backgroundColor: theme?.colors?.surface?.primary || '#ffffff',
-          borderColor: priorityColors[nextAction.priority],
-          borderWidth: nextAction.priority === 'high' ? 2 : 1,
-        },
-      ]}
-      onPress={handlePress}
-      activeOpacity={0.8}
-    >
-      <View style={styles.content}>
-        <View style={styles.iconContainer}>
-          <MaterialIcons
-            name={config.icon}
-            size={24}
-            color={theme?.colors?.brand?.primary || '#22c55e'}
-          />
-          {nextAction.priority === 'high' && (
-            <View
-              style={[
-                styles.priorityBadge,
-                { backgroundColor: priorityColors.high },
-              ]}
-            >
-              <Text style={styles.priorityText}>!</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.textContainer}>
-          <Text
-            style={[
-              styles.title,
-              { color: theme?.colors?.text?.primary || '#000000' },
-            ]}
-          >
-            {nextAction.title}
-          </Text>
-          <Text
-            style={[
-              styles.subtitle,
-              { color: theme?.colors?.text?.secondary || '#666666' },
-            ]}
-          >
-            {nextAction.description}
-          </Text>
-        </View>
-
-        <MaterialIcons
-          name="chevron-right"
-          size={24}
-          color={theme?.colors?.text?.secondary || '#666666'}
-        />
-      </View>
-
-      {/* Progress indicator for high priority actions */}
-      {nextAction.priority === 'high' && (
-        <View
-          style={[
-            styles.progressBar,
-            { backgroundColor: theme?.colors?.surface?.secondary || '#f8fafc' },
-          ]}
-        >
-          <View
-            style={[
-              styles.progressFill,
-              { backgroundColor: priorityColors.high, width: '100%' },
-            ]}
-          />
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-};
-
-// Static component for specific actions (backward compatibility)
-interface StaticNextBestActionProps {
-  actionType: ActionType;
+interface NextAction {
+  type: string;
   title: string;
   subtitle: string;
-  onPress: () => void;
-  isLoading?: boolean;
-  priority?: 'low' | 'medium' | 'high';
+  icon: string;
+  color: string;
+  action: () => void;
 }
 
-export const StaticNextBestAction: React.FC<StaticNextBestActionProps> = ({
-  actionType,
-  title,
-  subtitle,
-  onPress,
-  isLoading = false,
-  priority = 'medium',
-}) => {
+export const NextBestAction: React.FC<NextBestActionProps> = ({ onAction }) => {
   const { theme } = useTheme();
-  const config = actionConfig[actionType];
-  const priorityColors = {
-    high: theme?.colors?.error?.[500] || '#ef4444',
-    medium: theme?.colors?.warning?.[500] || '#f59e0b',
-    low: theme?.colors?.success?.[500] || '#22c55e',
+  const { user } = useAuthStore();
+  const { meals } = useMealStore();
+  const { weights } = useWeightStore();
+  const [action, setAction] = useState<NextAction | null>(null);
+
+  useEffect(() => {
+    generateNextBestAction();
+  }, [user, meals, weights]);
+
+  const generateNextBestAction = () => {
+    const now = new Date();
+    const hour = now.getHours();
+    const lastMeal = meals[meals.length - 1];
+    const lastMealTime = lastMeal ? new Date(lastMeal.timestamp) : null;
+    const hoursSinceLastMeal = lastMealTime 
+      ? (now.getTime() - lastMealTime.getTime()) / (1000 * 60 * 60) 
+      : 24;
+
+    const lastWeight = weights[weights.length - 1];
+    const lastWeightTime = lastWeight ? new Date(lastWeight.timestamp) : null;
+    const daysSinceLastWeight = lastWeightTime 
+      ? (now.getTime() - lastWeightTime.getTime()) / (1000 * 60 * 60 * 24) 
+      : 30;
+
+    let nextAction: NextAction;
+
+    // Morning (6-11 AM) - Focus on breakfast and planning
+    if (hour >= 6 && hour < 11) {
+      if (!lastMealTime || lastMealTime.getHours() < 6) {
+        nextAction = {
+          type: 'log_breakfast',
+          title: 'Log Your Breakfast',
+          subtitle: 'Start your day with a healthy meal',
+          icon: 'breakfast-dining',
+          color: theme.colors.brand.primary,
+          action: () => onAction('log_breakfast'),
+        };
+      } else {
+        nextAction = {
+          type: 'view_plan',
+          title: 'Check Your Meal Plan',
+          subtitle: 'See what to eat for lunch',
+          icon: 'restaurant-menu',
+          color: theme.colors.brand.secondary,
+          action: () => onAction('view_plan'),
+        };
+      }
+    }
+    // Afternoon (11 AM - 5 PM) - Focus on lunch and progress
+    else if (hour >= 11 && hour < 17) {
+      if (!lastMealTime || lastMealTime.getHours() < 11) {
+        nextAction = {
+          type: 'log_lunch',
+          title: 'Log Your Lunch',
+          subtitle: 'Keep your energy up with a balanced meal',
+          icon: 'lunch-dining',
+          color: theme.colors.brand.primary,
+          action: () => onAction('log_lunch'),
+        };
+      } else {
+        nextAction = {
+          type: 'view_feedback',
+          title: 'Check Your Progress',
+          subtitle: 'See how you\'re doing today',
+          icon: 'trending-up',
+          color: theme.colors.brand.secondary,
+          action: () => onAction('view_feedback'),
+        };
+      }
+    }
+    // Evening (5 PM - 10 PM) - Focus on dinner and summary
+    else if (hour >= 17 && hour < 22) {
+      if (!lastMealTime || lastMealTime.getHours() < 17) {
+        nextAction = {
+          type: 'log_dinner',
+          title: 'Log Your Dinner',
+          subtitle: 'End your day with a nutritious meal',
+          icon: 'dinner-dining',
+          color: theme.colors.brand.primary,
+          action: () => onAction('log_dinner'),
+        };
+      } else {
+        nextAction = {
+          type: 'view_summary',
+          title: 'View Daily Summary',
+          subtitle: 'See your progress and get tomorrow\'s tip',
+          icon: 'summarize',
+          color: theme.colors.brand.secondary,
+          action: () => onAction('view_summary'),
+        };
+      }
+    }
+    // Night (10 PM - 6 AM) - Focus on summary and planning
+    else {
+      nextAction = {
+        type: 'view_summary',
+        title: 'View Daily Summary',
+        subtitle: 'See your progress and get tomorrow\'s tip',
+        icon: 'summarize',
+        color: theme.colors.brand.secondary,
+        action: () => onAction('view_summary'),
+      };
+    }
+
+    // Override based on user state
+    if (hoursSinceLastMeal > 6) {
+      nextAction = {
+        type: 'log_meal',
+        title: 'Log a Meal',
+        subtitle: 'It\'s been a while since your last meal',
+        icon: 'restaurant',
+        color: theme.colors.brand.primary,
+        action: () => onAction('log_meal'),
+      };
+    }
+
+    // Check if weight logging is overdue
+    if (daysSinceLastWeight > 7) {
+      nextAction = {
+        type: 'log_weight',
+        title: 'Log Your Weight',
+        subtitle: 'Track your progress with a weight update',
+        icon: 'monitor-weight',
+        color: theme.colors.brand.primary,
+        action: () => onAction('log_weight'),
+      };
+    }
+
+    setAction(nextAction);
   };
 
-  if (isLoading) {
+  if (!action) {
     return (
-      <View
-        style={[
-          styles.container,
-          { backgroundColor: theme?.colors?.surface?.primary || '#ffffff' },
-        ]}
-      >
-        <ActivityIndicator
-          size="small"
-          color={theme?.colors?.brand?.primary || '#22c55e'}
-        />
-        <Text
-          style={[
-            styles.loadingText,
-            { color: theme?.colors?.text?.secondary || '#666666' },
-          ]}
-        >
-          Loading...
-        </Text>
+      <View style={[styles.container, { backgroundColor: theme.colors.background.secondary }]}>
+        <View style={styles.skeleton}>
+          <View style={[styles.skeletonIcon, { backgroundColor: theme.colors.background.tertiary }]} />
+          <View style={styles.skeletonContent}>
+            <View style={[styles.skeletonTitle, { backgroundColor: theme.colors.background.tertiary }]} />
+            <View style={[styles.skeletonSubtitle, { backgroundColor: theme.colors.background.tertiary }]} />
+          </View>
+        </View>
       </View>
     );
   }
 
   return (
     <TouchableOpacity
-      style={[
-        styles.container,
-        {
-          backgroundColor: theme?.colors?.surface?.primary || '#ffffff',
-          borderColor: priorityColors[priority],
-          borderWidth: priority === 'high' ? 2 : 1,
-        },
-      ]}
-      onPress={onPress}
-      activeOpacity={0.8}
+      style={[styles.container, { backgroundColor: theme.colors.background.secondary }]}
+      onPress={action.action}
+      accessibilityRole="button"
+      accessibilityLabel={action.title}
+      accessibilityHint={action.subtitle}
     >
       <View style={styles.content}>
-        <View style={styles.iconContainer}>
+        <View style={[styles.iconContainer, { backgroundColor: action.color + '20' }]}>
           <MaterialIcons
-            name={config.icon}
+            name={action.icon as any}
             size={24}
-            color={theme?.colors?.brand?.primary || '#22c55e'}
+            color={action.color}
           />
-          {priority === 'high' && (
-            <View
-              style={[
-                styles.priorityBadge,
-                { backgroundColor: priorityColors.high },
-              ]}
-            >
-              <Text style={styles.priorityText}>!</Text>
-            </View>
-          )}
         </View>
-
+        
         <View style={styles.textContainer}>
-          <Text
-            style={[
-              styles.title,
-              { color: theme?.colors?.text?.primary || '#000000' },
-            ]}
-          >
-            {title}
+          <Text style={[styles.title, { color: theme.colors.text.primary }]}>
+            {action.title}
           </Text>
-          <Text
-            style={[
-              styles.subtitle,
-              { color: theme?.colors?.text?.secondary || '#666666' },
-            ]}
-          >
-            {subtitle}
+          <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]}>
+            {action.subtitle}
           </Text>
         </View>
-
+        
         <MaterialIcons
           name="chevron-right"
           size={24}
-          color={theme?.colors?.text?.secondary || '#666666'}
+          color={theme.colors.text.tertiary}
         />
       </View>
-
-      {priority === 'high' && (
-        <View
-          style={[
-            styles.progressBar,
-            { backgroundColor: theme?.colors?.surface?.secondary || '#f8fafc' },
-          ]}
-        >
-          <View
-            style={[
-              styles.progressFill,
-              { backgroundColor: priorityColors.high, width: '100%' },
-            ]}
-          />
-        </View>
-      )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
-    padding: 16,
-    marginVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 12,
+    margin: 16,
+    marginBottom: 8,
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 16,
   },
   iconContainer: {
-    position: 'relative',
-    marginRight: 16,
-  },
-  priorityBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
-  },
-  priorityText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: 'bold',
+    alignItems: 'center',
+    marginRight: 16,
   },
   textContainer: {
     flex: 1,
@@ -358,18 +233,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  loadingText: {
-    fontSize: 14,
-    marginLeft: 12,
+  skeleton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
   },
-  progressBar: {
-    height: 3,
-    borderRadius: 2,
-    marginTop: 12,
-    overflow: 'hidden',
+  skeletonIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 16,
   },
-  progressFill: {
-    height: '100%',
-    borderRadius: 2,
+  skeletonContent: {
+    flex: 1,
+  },
+  skeletonTitle: {
+    height: 16,
+    width: '60%',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonSubtitle: {
+    height: 14,
+    width: '80%',
+    borderRadius: 4,
   },
 });

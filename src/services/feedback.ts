@@ -1,44 +1,17 @@
-// Feedback service for generating personalized nutrition coaching
-import { http } from './http';
-import {
-  GenerateFeedbackRequest,
-  GenerateFeedbackResponse,
+import { http, AppError } from './http';
+import { 
+  FeedbackContext, 
+  NutritionData, 
+  WeightData,
   CoachFeedback,
-  GetFeedbackResponse,
-} from '@/types/api/feedback';
-import { MacroNutrients } from '@/types/api/meals';
-
-export interface FeedbackContext {
-  date: string;
-  mealsLogged: number;
-  weightLogged: boolean;
-  exerciseLogged: boolean;
-  sleepHours?: number;
-  stressLevel?: number;
-  mood?: 'great' | 'good' | 'okay' | 'poor' | 'terrible';
-}
-
-export interface NutritionData {
-  totalCalories: number;
-  totalProtein: number;
-  totalCarbs: number;
-  totalFat: number;
-  targetCalories: number;
-  targetProtein: number;
-  targetCarbs: number;
-  targetFat: number;
-}
-
-export interface WeightData {
-  currentWeight: number;
-  targetWeight: number;
-  weeklyProgress: number;
-  isOnTrack: boolean;
-}
+  GenerateFeedbackRequest,
+  validateApiResponse,
+  CoachFeedbackSchema
+} from '@/types/api';
 
 export class FeedbackService {
   /**
-   * Generate personalized feedback for the day
+   * Generate AI feedback based on user context and nutrition data
    */
   static async generateFeedback(
     context: FeedbackContext,
@@ -47,184 +20,89 @@ export class FeedbackService {
   ): Promise<CoachFeedback | null> {
     try {
       const request: GenerateFeedbackRequest = {
-        date: context.date,
-        context: {
-          mealsLogged: context.mealsLogged,
-          weightLogged: context.weightLogged,
-          exerciseLogged: context.exerciseLogged,
-          sleepHours: context.sleepHours,
-          stressLevel: context.stressLevel,
-          mood: context.mood,
-        },
+        context,
         nutritionData,
         weightData,
       };
 
-      const response = await http.post<GenerateFeedbackResponse>(
-        '/feedback/generate',
-        request
-      );
-      return response.feedback;
+      const response = await http.post<CoachFeedback>('/feedback/generate', request);
+      return validateApiResponse(CoachFeedbackSchema, response);
     } catch (error) {
       console.error('[FeedbackService] Generate feedback error:', error);
-      return null;
+      
+      // Return fallback feedback if API fails
+      return this.generateFallbackFeedback(context, nutritionData, weightData);
     }
   }
 
   /**
-   * Get feedback history
+   * Generate fallback feedback when API is unavailable
    */
-  static async getFeedbackHistory(
-    limit: number = 30
-  ): Promise<CoachFeedback[]> {
-    try {
-      const response = await http.get<GetFeedbackResponse>(
-        `/feedback/history?limit=${limit}`
-      );
-      return response.feedback;
-    } catch (error) {
-      console.error('[FeedbackService] Get feedback history error:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Get latest feedback
-   */
-  static async getLatestFeedback(): Promise<CoachFeedback | null> {
-    try {
-      const response = await http.get<GetFeedbackResponse>('/feedback/latest');
-      return response.latestFeedback || null;
-    } catch (error) {
-      console.error('[FeedbackService] Get latest feedback error:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Generate contextual next best action
-   */
-  static generateNextBestAction(
+  private static generateFallbackFeedback(
     context: FeedbackContext,
     nutritionData: NutritionData,
-    lastMealTime?: Date
-  ): {
-    title: string;
-    description: string;
-    actionType: string;
-    priority: 'low' | 'medium' | 'high';
-  } {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+    weightData?: WeightData
+  ): CoachFeedback {
+    const { mealsLogged, mood } = context;
+    const { totalCalories, totalProtein, targetCalories, targetProtein } = nutritionData;
 
-    // Morning actions (6 AM - 11 AM)
-    if (currentHour >= 6 && currentHour < 11) {
-      if (context.mealsLogged === 0) {
-        return {
-          title: 'Log your breakfast',
-          description:
-            'Start your day by logging your first meal to track your nutrition goals.',
-          actionType: 'log_meal',
-          priority: 'high',
-        };
-      }
+    // Calculate protein percentage
+    const proteinPercentage = (totalProtein / targetProtein) * 100;
+    const caloriePercentage = (totalCalories / targetCalories) * 100;
 
-      if (context.mealsLogged === 1) {
-        return {
-          title: 'Plan your lunch',
-          description:
-            'Plan your lunch to stay on track with your daily nutrition goals.',
-          actionType: 'plan_meal',
-          priority: 'medium',
-        };
-      }
+    let summary = '';
+    let tomorrowTip = '';
+    let proteinNote = '';
+    let moodType: 'celebratory' | 'encouraging' | 'supportive' | 'motivating' = 'supportive';
+
+    // Generate summary based on performance
+    if (mealsLogged >= 3 && proteinPercentage >= 90 && caloriePercentage >= 85) {
+      summary = 'Excellent work today! You\'re hitting your targets and staying consistent.';
+      moodType = 'celebratory';
+    } else if (mealsLogged >= 2 && proteinPercentage >= 75) {
+      summary = 'Great progress! You\'re on track with your nutrition goals.';
+      moodType = 'encouraging';
+    } else if (mealsLogged >= 1) {
+      summary = 'Good start! Let\'s work on hitting your daily targets.';
+      moodType = 'supportive';
+    } else {
+      summary = 'Ready to get back on track? Every meal counts toward your goals.';
+      moodType = 'motivating';
     }
 
-    // Lunch time (11 AM - 2 PM)
-    if (currentHour >= 11 && currentHour < 14) {
-      if (context.mealsLogged === 1) {
-        return {
-          title: 'Log your lunch',
-          description: 'Log your lunch to track your midday nutrition intake.',
-          actionType: 'log_meal',
-          priority: 'high',
-        };
-      }
-
-      if (context.mealsLogged === 2) {
-        return {
-          title: 'Plan your dinner',
-          description:
-            'Plan your dinner to ensure you meet your daily nutrition targets.',
-          actionType: 'plan_meal',
-          priority: 'medium',
-        };
-      }
+    // Generate protein note
+    if (proteinPercentage >= 100) {
+      proteinNote = 'Perfect protein intake! You\'re exceeding your target.';
+    } else if (proteinPercentage >= 80) {
+      proteinNote = 'Great protein intake! You\'re close to your target.';
+    } else if (proteinPercentage >= 60) {
+      proteinNote = 'Good protein intake. Try to add more protein-rich foods.';
+    } else {
+      proteinNote = 'Focus on increasing protein intake. Consider adding lean meats, eggs, or legumes.';
     }
 
-    // Afternoon (2 PM - 6 PM)
-    if (currentHour >= 14 && currentHour < 18) {
-      if (context.mealsLogged === 2) {
-        return {
-          title: 'Log your dinner',
-          description: 'Log your dinner to complete your daily meal tracking.',
-          actionType: 'log_meal',
-          priority: 'high',
-        };
-      }
+    // Generate tomorrow's tip
+    const tips = [
+      'Start your day with a protein-rich breakfast to fuel your metabolism.',
+      'Include vegetables in every meal for essential vitamins and minerals.',
+      'Stay hydrated by drinking water throughout the day.',
+      'Plan your meals ahead to avoid unhealthy choices.',
+      'Include healthy fats like nuts, avocado, or olive oil.',
+      'Eat slowly and mindfully to improve digestion.',
+      'Get enough sleep to support your metabolism and recovery.',
+    ];
 
-      if (context.mealsLogged >= 3) {
-        return {
-          title: 'Add a snack',
-          description:
-            'Consider adding a healthy snack if you need more calories.',
-          actionType: 'log_meal',
-          priority: 'low',
-        };
-      }
-    }
+    tomorrowTip = tips[Math.floor(Math.random() * tips.length)];
 
-    // Evening (6 PM - 10 PM)
-    if (currentHour >= 18 && currentHour < 22) {
-      if (context.mealsLogged >= 3) {
-        return {
-          title: 'Get daily feedback',
-          description:
-            'Review your daily nutrition summary and get personalized tips.',
-          actionType: 'view_feedback',
-          priority: 'medium',
-        };
-      }
-
-      if (!context.weightLogged && currentDay === 0) {
-        // Sunday
-        return {
-          title: 'Log your weight',
-          description: 'Track your weekly progress by logging your weight.',
-          actionType: 'add_weight',
-          priority: 'medium',
-        };
-      }
-    }
-
-    // Night (10 PM - 6 AM)
-    if (currentHour >= 22 || currentHour < 6) {
-      return {
-        title: 'Plan tomorrow',
-        description:
-          'Plan your meals for tomorrow to stay on track with your goals.',
-        actionType: 'plan_meal',
-        priority: 'low',
-      };
-    }
-
-    // Default action
     return {
-      title: 'Log a meal',
-      description: 'Keep tracking your nutrition by logging your next meal.',
-      actionType: 'log_meal',
-      priority: 'medium',
+      id: `feedback_${Date.now()}`,
+      date: context.date,
+      summary,
+      tomorrowTip,
+      proteinNote,
+      hydrationNote: 'Remember to drink 8-10 glasses of water daily.',
+      mood: moodType,
+      streak: this.calculateStreak(context.date),
     };
   }
 
@@ -233,128 +111,171 @@ export class FeedbackService {
    */
   static getNutritionTips(nutritionData: NutritionData): string[] {
     const tips: string[] = [];
-    const {
-      totalCalories,
-      totalProtein,
-      totalCarbs,
-      totalFat,
-      targetCalories,
-      targetProtein,
-      targetCarbs,
-      targetFat,
-    } = nutritionData;
+    const { totalCalories, totalProtein, totalCarbs, totalFat, targetCalories, targetProtein } = nutritionData;
 
-    // Calorie tips
-    if (totalCalories < targetCalories * 0.8) {
-      tips.push(
-        "You're under your calorie target. Consider adding a healthy snack."
-      );
-    } else if (totalCalories > targetCalories * 1.2) {
-      tips.push(
-        "You're over your calorie target. Try to reduce portion sizes for your next meal."
-      );
+    const caloriePercentage = (totalCalories / targetCalories) * 100;
+    const proteinPercentage = (totalProtein / targetProtein) * 100;
+
+    if (caloriePercentage < 80) {
+      tips.push('Consider adding healthy snacks to reach your calorie target.');
+    } else if (caloriePercentage > 120) {
+      tips.push('Try reducing portion sizes to stay within your calorie goal.');
     }
 
-    // Protein tips
-    if (totalProtein < targetProtein * 0.8) {
-      tips.push(
-        'Add more protein to your next meal. Try lean meats, fish, or plant-based options.'
-      );
-    } else if (totalProtein > targetProtein * 1.2) {
-      tips.push(
-        "You've exceeded your protein target. Consider adding more vegetables to balance your macros."
-      );
+    if (proteinPercentage < 80) {
+      tips.push('Add more protein-rich foods like chicken, fish, or legumes.');
     }
 
-    // Carb tips
-    if (totalCarbs < targetCarbs * 0.8) {
-      tips.push(
-        'Add more complex carbohydrates like whole grains, fruits, or vegetables.'
-      );
-    } else if (totalCarbs > targetCarbs * 1.2) {
-      tips.push(
-        'Consider reducing refined carbohydrates and focusing on whole foods.'
-      );
+    if (totalCarbs < 100) {
+      tips.push('Include complex carbohydrates like whole grains and fruits.');
     }
 
-    // Fat tips
-    if (totalFat < targetFat * 0.8) {
-      tips.push(
-        'Add healthy fats like avocado, nuts, or olive oil to your meals.'
-      );
-    } else if (totalFat > targetFat * 1.2) {
-      tips.push(
-        'Consider reducing high-fat foods and focusing on lean protein sources.'
-      );
+    if (totalFat < 30) {
+      tips.push('Add healthy fats like nuts, avocado, or olive oil.');
     }
 
     return tips;
   }
 
   /**
-   * Get motivational messages based on progress
+   * Get motivational message based on streak
    */
-  static getMotivationalMessage(progress: number, streak: number): string {
-    if (progress > 0.9) {
-      return `Amazing! You're crushing your goals! 🎉`;
-    } else if (progress > 0.7) {
-      return `Great job! You're on track to reach your goals! 💪`;
-    } else if (progress > 0.5) {
-      return `You're making progress! Keep up the good work! 🌟`;
-    } else if (streak > 7) {
-      return `Your ${streak}-day streak is impressive! Keep it up! 🔥`;
-    } else if (streak > 3) {
-      return `You're building a great habit! Consistency is key! ⭐`;
+  static getMotivationalMessage(streak: number, daysLogged: number): string {
+    if (streak >= 30) {
+      return `Incredible! ${streak} days strong! You're building an unbreakable habit.`;
+    } else if (streak >= 14) {
+      return `Amazing! ${streak} days in a row! You're forming a powerful routine.`;
+    } else if (streak >= 7) {
+      return `Great job! ${streak} days straight! Keep the momentum going.`;
+    } else if (streak >= 3) {
+      return `Nice work! ${streak} days in a row. You're building consistency.`;
+    } else if (daysLogged > 0) {
+      return `Every day counts! You've logged ${daysLogged} days. Keep going!`;
     } else {
-      return `Every step counts! You're building a healthier lifestyle! 🌱`;
+      return `Ready to start your journey? Every meal is a step toward your goals.`;
     }
   }
 
   /**
-   * Calculate nutrition score (0-100)
+   * Generate next best action based on context
    */
-  static calculateNutritionScore(nutritionData: NutritionData): number {
-    const {
-      totalCalories,
-      totalProtein,
-      totalCarbs,
-      totalFat,
-      targetCalories,
-      targetProtein,
-      targetCarbs,
-      targetFat,
-    } = nutritionData;
+  static generateNextBestAction(
+    context: FeedbackContext,
+    nutritionData: NutritionData,
+    lastMealTime?: Date
+  ): {
+    actionType: string;
+    title: string;
+    subtitle: string;
+    priority: 'high' | 'medium' | 'low';
+  } {
+    const now = new Date();
+    const hour = now.getHours();
+    const hoursSinceLastMeal = lastMealTime 
+      ? (now.getTime() - lastMealTime.getTime()) / (1000 * 60 * 60) 
+      : 24;
 
-    const calorieScore = Math.max(
-      0,
-      100 - (Math.abs(totalCalories - targetCalories) / targetCalories) * 100
-    );
-    const proteinScore = Math.max(
-      0,
-      100 - (Math.abs(totalProtein - targetProtein) / targetProtein) * 100
-    );
-    const carbScore = Math.max(
-      0,
-      100 - (Math.abs(totalCarbs - targetCarbs) / targetCarbs) * 100
-    );
-    const fatScore = Math.max(
-      0,
-      100 - (Math.abs(totalFat - targetFat) / targetFat) * 100
-    );
+    // High priority actions
+    if (context.mealsLogged === 0) {
+      return {
+        actionType: 'log_meal',
+        title: 'Log Your First Meal',
+        subtitle: 'Start tracking your nutrition today',
+        priority: 'high',
+      };
+    }
 
-    return Math.round((calorieScore + proteinScore + carbScore + fatScore) / 4);
+    if (hoursSinceLastMeal > 6) {
+      return {
+        actionType: 'log_meal',
+        title: 'Log a Meal',
+        subtitle: 'It\'s been a while since your last meal',
+        priority: 'high',
+      };
+    }
+
+    // Medium priority actions
+    if (context.mealsLogged < 2) {
+      return {
+        actionType: 'log_meal',
+        title: 'Log Another Meal',
+        subtitle: 'Complete your daily meal tracking',
+        priority: 'medium',
+      };
+    }
+
+    if (hour >= 17 && context.mealsLogged < 3) {
+      return {
+        actionType: 'plan_meal',
+        title: 'Plan Your Dinner',
+        subtitle: 'End your day with a nutritious meal',
+        priority: 'medium',
+      };
+    }
+
+    // Low priority actions
+    if (context.mealsLogged >= 3) {
+      return {
+        actionType: 'view_feedback',
+        title: 'Review Your Progress',
+        subtitle: 'See how you\'re doing today',
+        priority: 'low',
+      };
+    }
+
+    return {
+      actionType: 'view_plan',
+      title: 'Check Your Meal Plan',
+      subtitle: 'See what to eat next',
+      priority: 'low',
+    };
   }
 
   /**
-   * Get feedback mood based on score
+   * Calculate streak based on date
    */
-  static getFeedbackMood(
-    score: number
-  ): 'encouraging' | 'supportive' | 'analytical' | 'celebratory' {
-    if (score >= 90) return 'celebratory';
-    if (score >= 70) return 'encouraging';
-    if (score >= 50) return 'supportive';
-    return 'analytical';
+  private static calculateStreak(date: string): number {
+    // This would typically calculate based on actual meal logging history
+    // For now, return a mock value
+    return Math.floor(Math.random() * 30) + 1;
+  }
+
+  /**
+   * Get hydration reminder
+   */
+  static getHydrationReminder(): string {
+    const reminders = [
+      'Stay hydrated! Aim for 8-10 glasses of water daily.',
+      'Drinking water helps with metabolism and appetite control.',
+      'Dehydration can affect your energy levels and focus.',
+      'Try adding lemon or cucumber to your water for flavor.',
+    ];
+    return reminders[Math.floor(Math.random() * reminders.length)];
+  }
+
+  /**
+   * Get sleep tip
+   */
+  static getSleepTip(sleepHours: number): string {
+    if (sleepHours < 6) {
+      return 'Getting enough sleep is crucial for weight management. Aim for 7-9 hours.';
+    } else if (sleepHours > 9) {
+      return 'Too much sleep can affect your metabolism. 7-9 hours is optimal.';
+    } else {
+      return 'Great sleep habits! Quality rest supports your health goals.';
+    }
+  }
+
+  /**
+   * Get stress management tip
+   */
+  static getStressTip(stressLevel: number): string {
+    if (stressLevel >= 4) {
+      return 'High stress can affect your eating habits. Try deep breathing or meditation.';
+    } else if (stressLevel >= 3) {
+      return 'Managing stress well! Consider light exercise to reduce tension.';
+    } else {
+      return 'Excellent stress management! Keep up the great work.';
+    }
   }
 }
-
