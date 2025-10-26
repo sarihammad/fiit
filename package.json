@@ -16,6 +16,7 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "type-check": "tsc --noEmit",
+    "ci": "npm run lint && npm run typecheck && npm test",
     "prepare": "husky install"
   },
   "dependencies": {
