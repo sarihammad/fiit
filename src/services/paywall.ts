@@ -1,43 +1,51 @@
-// FIIT Paywall Service with RevenueCat integration
-// Handles subscription tiers, feature gating, and rescue offers
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import { http } from './http';
-import {
-  Offering,
+import Purchases, { 
+  PurchasesOffering, 
+  PurchasesPackage, 
   CustomerInfo,
-  PurchaseRequest,
-  RestorePurchasesRequest,
-} from '@/types/api/purchases';
+  PurchasesError,
+  PURCHASES_ERROR_CODE 
+} from 'react-native-purchases';
+import { http } from './http';
+import { 
+  Offering, 
+  Package, 
+  CustomerInfo as CustomerInfoDTO,
+  validateApiResponse,
+  OfferingSchema,
+  CustomerInfoSchema 
+} from '@/types/api';
 
-// Try to import Purchases, handle gracefully if not available
-let Purchases: any = null;
-try {
-  Purchases = require('react-native-purchases').Purchases;
-} catch (error) {
-  console.log('[Paywall] RevenueCat not available in this environment');
+// Subscription tier enum
+export enum SubscriptionTier {
+  FREE = 'free',
+  PRO = 'pro',
+  PREMIUM = 'premium',
 }
 
-export type SubscriptionTier = 'free' | 'pro' | 'premium';
-
-export interface PaywallResult {
+// Purchase result interface
+export interface PurchaseResult {
   success: boolean;
-  data?: any;
+  data?: {
+    customerInfo: CustomerInfoDTO;
+    productIdentifier: string;
+  };
   error?: string;
 }
 
+// Rescue offer state interface
 export interface RescueOfferState {
   canShowRescue: boolean;
   rescueOfferedAt?: string;
-  rescueExpiry?: string; // 24h from offer
+  rescueExpiry?: string;
 }
 
-const RESCUE_OFFER_KEY = '@fiit-rescue-offer';
-const RESCUE_DISCOUNT = 0.5; // 50% off
-const RESCUE_WINDOW_HOURS = 24;
-
 export class PaywallService {
+  private static readonly OFFERINGS_CACHE_KEY = '@fiit-offerings-cache';
+  private static readonly RESCUE_OFFER_KEY = '@fiit-rescue-offer';
+  private static readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
   /**
    * Initialize RevenueCat with environment variables
    */
@@ -68,151 +76,95 @@ export class PaywallService {
   }
 
   /**
-   * Feature gating logic
-   * Free: logging only
-   * Pro: planner, grocery, insights history
-   * Premium: weekly AI check-ins
+   * Get available offerings
    */
-  static canAccessFeature(feature: string, tier: SubscriptionTier): boolean {
-    const featureMap: Record<string, SubscriptionTier[]> = {
-      // Free features
-      meal_logging: ['free', 'pro', 'premium'],
-      photo_scan: ['free', 'pro', 'premium'],
-      search_food: ['free', 'pro', 'premium'],
-      manual_entry: ['free', 'pro', 'premium'],
-      daily_totals: ['free', 'pro', 'premium'],
-      today_insight: ['free', 'pro', 'premium'], // Today's insight is free
+  static async getOfferings(): Promise<Offering[]> {
+    try {
+      // Check cache first
+      const cachedOfferings = await this.getCachedOfferings();
+      if (cachedOfferings) {
+        return cachedOfferings;
+      }
 
-      // Pro features
-      meal_planner: ['pro', 'premium'],
-      grocery_lists: ['pro', 'premium'],
-      insights_history: ['pro', 'premium'],
-      weekly_analytics: ['pro', 'premium'],
-      advanced_tracking: ['pro', 'premium'],
-      export_data: ['pro', 'premium'],
+      if (!Purchases) {
+        // Return mock offerings for development
+        return this.getMockOfferings();
+      }
+      
+      const offerings = await Purchases.getOfferings();
+      const currentOffering = offerings.current;
 
-      // Premium features
-      weekly_ai_checkins: ['premium'],
-      priority_support: ['premium'],
-      custom_meal_plans: ['premium'],
-      advanced_analytics: ['premium'],
-      unlimited_meal_plans: ['premium'],
-    };
+      if (!currentOffering) {
+        throw new Error('No current offering available');
+      }
 
-    return featureMap[feature]?.includes(tier) || false;
-  }
+      const offeringDTO = this.mapOfferingToDTO(currentOffering);
+      const offeringsArray = [offeringDTO];
 
-  /**
-   * Get current subscription tier from customer info
-   */
-  static getCurrentTier(customerInfo?: CustomerInfo): SubscriptionTier {
-    if (!customerInfo) {
-      return 'free';
+      // Cache the offerings
+      await this.cacheOfferings(offeringsArray);
+
+      return offeringsArray;
+    } catch (error) {
+      console.error('[Paywall] Failed to get offerings:', error);
+      
+      // Return cached offerings if available
+      const cachedOfferings = await this.getCachedOfferings();
+      if (cachedOfferings) {
+        return cachedOfferings;
+      }
+
+      // Return mock offerings as fallback
+      return this.getMockOfferings();
     }
-
-    // Check for premium entitlement
-    if (customerInfo.entitlements.premium?.isActive) {
-      return 'premium';
-    }
-
-    // Check for pro entitlement
-    if (customerInfo.entitlements.pro?.isActive) {
-      return 'pro';
-    }
-
-    return 'free';
-  }
-
-  /**
-   * Check if customer is in trial period
-   */
-  static isCustomerInTrial(customerInfo?: CustomerInfo): boolean {
-    if (!customerInfo) {
-      return false;
-    }
-
-    return Object.values(customerInfo.entitlements).some(
-      entitlement => entitlement.periodType === 'TRIAL'
-    );
-  }
-
-  /**
-   * Get mock offerings for development/testing
-   */
-  static getMockOfferings(): Offering[] {
-    return [
-      {
-        identifier: 'default',
-        serverDescription: 'FIIT Premium Plans',
-        metadata: {},
-        availablePackages: [
-          {
-            identifier: 'fiit_pro_monthly',
-            packageType: 'MONTHLY',
-            product: {
-              identifier: 'fiit_pro_monthly',
-              description: 'FIIT Pro Monthly',
-              title: 'FIIT Pro',
-              price: 9.99,
-              priceString: '$9.99',
-              currencyCode: 'USD',
-            },
-          },
-          {
-            identifier: 'fiit_pro_yearly',
-            packageType: 'ANNUAL',
-            product: {
-              identifier: 'fiit_pro_yearly',
-              description: 'FIIT Pro Yearly',
-              title: 'FIIT Pro',
-              price: 79.99,
-              priceString: '$79.99',
-              currencyCode: 'USD',
-            },
-          },
-          {
-            identifier: 'fiit_premium_yearly',
-            packageType: 'ANNUAL',
-            product: {
-              identifier: 'fiit_premium_yearly',
-              description: 'FIIT Premium Yearly',
-              title: 'FIIT Premium',
-              price: 199.99,
-              priceString: '$199.99',
-              currencyCode: 'USD',
-            },
-          },
-        ],
-      },
-    ];
   }
 
   /**
    * Purchase a package
    */
-  static async purchasePackage(packageId: string): Promise<PaywallResult> {
+  static async purchasePackage(packageIdentifier: string): Promise<PurchaseResult> {
     try {
       if (!Purchases) {
-        console.log('[Paywall] RevenueCat not available, using mock purchase');
-        return {
-          success: true,
-          data: {
-            packageId,
-            tier: 'pro',
-            isInTrial: true,
-          },
-        };
+        throw new Error('RevenueCat not available');
+      }
+      
+      const offerings = await Purchases.getOfferings();
+      const currentOffering = offerings.current;
+
+      if (!currentOffering) {
+        throw new Error('No offering available');
       }
 
-      const request: PurchaseRequest = { packageId };
-      const response = await http.post('/purchases/purchase', request);
+      const packageToPurchase = currentOffering.availablePackages.find(
+        pkg => pkg.identifier === packageIdentifier
+      );
+
+      if (!packageToPurchase) {
+        throw new Error('Package not found');
+      }
+
+      const purchaseResult = await Purchases.purchasePackage(packageToPurchase);
+      const customerInfo = this.mapCustomerInfoToDTO(purchaseResult.customerInfo);
 
       return {
         success: true,
-        data: response,
+        data: {
+          customerInfo,
+          productIdentifier: purchaseResult.productIdentifier,
+        },
       };
     } catch (error) {
-      console.error('[Paywall] Purchase error:', error);
+      console.error('[Paywall] Purchase failed:', error);
+      
+      if (error instanceof PurchasesError) {
+        if (error.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
+        return {
+          success: false,
+            error: 'Purchase cancelled',
+        };
+        }
+      }
+      
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Purchase failed',
@@ -223,27 +175,24 @@ export class PaywallService {
   /**
    * Restore purchases
    */
-  static async restorePurchases(): Promise<PaywallResult> {
+  static async restorePurchases(): Promise<PurchaseResult> {
     try {
       if (!Purchases) {
-        console.log('[Paywall] RevenueCat not available, using mock restore');
-        return {
-          success: true,
-          data: {
-            restoredPurchases: [],
-          },
-        };
+        throw new Error('RevenueCat not available');
       }
-
-      const request: RestorePurchasesRequest = {};
-      const response = await http.post('/purchases/restore', request);
-
+      
+      const restoreResult = await Purchases.restorePurchases();
+      const customerInfo = this.mapCustomerInfoToDTO(restoreResult.customerInfo);
+      
       return {
         success: true,
-        data: response,
+        data: {
+          customerInfo,
+          productIdentifier: 'restored',
+        },
       };
     } catch (error) {
-      console.error('[Paywall] Restore error:', error);
+      console.error('[Paywall] Restore failed:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Restore failed',
@@ -252,230 +201,255 @@ export class PaywallService {
   }
 
   /**
-   * Get offerings
-   */
-  static async getOfferings(): Promise<Offering[]> {
-    try {
-      if (!Purchases) {
-        console.log('[Paywall] RevenueCat not available, using mock offerings');
-        return this.getMockOfferings();
-      }
-
-      const response = await http.get<{ offerings: Offering[] }>(
-        '/purchases/offerings'
-      );
-      return response.offerings;
-    } catch (error) {
-      console.error('[Paywall] Get offerings error:', error);
-      return this.getMockOfferings();
-    }
-  }
-
-  /**
    * Get customer info
    */
-  static async getCustomerInfo(): Promise<CustomerInfo | null> {
+  static async getCustomerInfo(): Promise<CustomerInfoDTO | null> {
     try {
       if (!Purchases) {
-        console.log(
-          '[Paywall] RevenueCat not available, using mock customer info'
-        );
         return null;
       }
 
-      const response = await http.get<CustomerInfo>('/purchases/customer-info');
-      return response;
+      const customerInfo = await Purchases.getCustomerInfo();
+      return this.mapCustomerInfoToDTO(customerInfo);
     } catch (error) {
-      console.error('[Paywall] Get customer info error:', error);
+      console.error('[Paywall] Failed to get customer info:', error);
       return null;
     }
   }
 
   /**
-   * Check if rescue offer should be shown
+   * Check rescue offer state
    */
   static async checkRescueOffer(): Promise<RescueOfferState> {
     try {
-      const stored = await AsyncStorage.getItem(RESCUE_OFFER_KEY);
-
-      if (!stored) {
-        return { canShowRescue: false };
+      const rescueData = await AsyncStorage.getItem(this.RESCUE_OFFER_KEY);
+      
+      if (!rescueData) {
+        return { canShowRescue: true };
       }
 
-      const rescueData = JSON.parse(stored);
+      const parsed = JSON.parse(rescueData);
       const now = new Date();
-      const rescueExpiry = new Date(rescueData.rescueExpiry);
+      const offeredAt = new Date(parsed.rescueOfferedAt);
+      const expiry = new Date(parsed.rescueExpiry);
 
-      if (now > rescueExpiry) {
-        // Rescue offer expired
-        await AsyncStorage.removeItem(RESCUE_OFFER_KEY);
-        return { canShowRescue: false };
+      if (now > expiry) {
+        // Offer expired, can show again
+        return { canShowRescue: true };
       }
-
-      return rescueData;
+      
+      return {
+        canShowRescue: false,
+        rescueOfferedAt: parsed.rescueOfferedAt,
+        rescueExpiry: parsed.rescueExpiry,
+      };
     } catch (error) {
-      console.error('[Paywall] Rescue offer check error:', error);
-      return { canShowRescue: false };
+      console.error('[Paywall] Failed to check rescue offer:', error);
+      return { canShowRescue: true };
     }
   }
 
   /**
-   * Show rescue offer
+   * Set rescue offer as shown
    */
-  static async showRescueOffer(): Promise<void> {
+  static async setRescueOfferShown(): Promise<void> {
     try {
       const now = new Date();
-      const expiry = new Date();
-      expiry.setHours(expiry.getHours() + RESCUE_WINDOW_HOURS);
+      const expiry = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
 
-      const rescueData: RescueOfferState = {
-        canShowRescue: true,
+      const rescueData = {
         rescueOfferedAt: now.toISOString(),
         rescueExpiry: expiry.toISOString(),
       };
 
-      await AsyncStorage.setItem(RESCUE_OFFER_KEY, JSON.stringify(rescueData));
+      await AsyncStorage.setItem(this.RESCUE_OFFER_KEY, JSON.stringify(rescueData));
     } catch (error) {
-      console.error('[Paywall] Show rescue offer error:', error);
+      console.error('[Paywall] Failed to set rescue offer:', error);
     }
   }
 
   /**
-   * Dismiss rescue offer
+   * Get tier benefits
    */
-  static async dismissRescueOffer(): Promise<void> {
+  static getTierBenefits(tier: SubscriptionTier): Array<{ title: string; description: string }> {
+    switch (tier) {
+      case SubscriptionTier.FREE:
+        return [
+          { title: 'Basic Meal Logging', description: 'Log up to 3 meals per day' },
+          { title: 'Basic Analytics', description: 'Simple progress tracking' },
+        ];
+      case SubscriptionTier.PRO:
+        return [
+          { title: 'AI Meal Planning', description: 'Personalized meal plans' },
+          { title: 'Unlimited Logging', description: 'Log unlimited meals' },
+          { title: 'Advanced Analytics', description: 'Detailed insights' },
+          { title: 'Priority Support', description: '24/7 customer support' },
+        ];
+      case SubscriptionTier.PREMIUM:
+        return [
+          { title: 'Everything in Pro', description: 'All Pro features included' },
+          { title: 'Weekly AI Check-ins', description: 'Personalized weekly reviews' },
+          { title: 'Custom Goals', description: 'Set custom nutrition targets' },
+          { title: 'Export Data', description: 'Export your nutrition data' },
+        ];
+      default:
+        return [];
+    }
+  }
+
+  /**
+   * Check if user can access a feature
+   */
+  static canAccessFeature(feature: string, tier: SubscriptionTier): boolean {
+    const featureAccess = {
+      meal_logging: [SubscriptionTier.FREE, SubscriptionTier.PRO, SubscriptionTier.PREMIUM],
+      ai_meal_planning: [SubscriptionTier.PRO, SubscriptionTier.PREMIUM],
+      advanced_analytics: [SubscriptionTier.PRO, SubscriptionTier.PREMIUM],
+      weekly_ai_checkins: [SubscriptionTier.PREMIUM],
+      custom_goals: [SubscriptionTier.PREMIUM],
+      export_data: [SubscriptionTier.PREMIUM],
+    };
+
+    return featureAccess[feature as keyof typeof featureAccess]?.includes(tier) || false;
+  }
+
+  /**
+   * Map RevenueCat offering to DTO
+   */
+  private static mapOfferingToDTO(offering: PurchasesOffering): Offering {
+    return {
+      identifier: offering.identifier,
+      serverDescription: offering.serverDescription,
+      availablePackages: offering.availablePackages.map(this.mapPackageToDTO),
+    };
+  }
+
+  /**
+   * Map RevenueCat package to DTO
+   */
+  private static mapPackageToDTO(pkg: PurchasesPackage): Package {
+      return {
+      identifier: pkg.identifier,
+      packageType: pkg.packageType,
+      product: {
+        identifier: pkg.product.identifier,
+        description: pkg.product.description,
+        title: pkg.product.title,
+        price: pkg.product.price,
+        priceString: pkg.product.priceString,
+        currencyCode: pkg.product.currencyCode,
+      },
+    };
+  }
+
+  /**
+   * Map RevenueCat customer info to DTO
+   */
+  private static mapCustomerInfoToDTO(customerInfo: CustomerInfo): CustomerInfoDTO {
+    return {
+      originalAppUserId: customerInfo.originalAppUserId,
+      firstSeen: customerInfo.firstSeen,
+      requestDate: customerInfo.requestDate,
+      allPurchaseDates: customerInfo.allPurchaseDates,
+      allExpirationDates: customerInfo.allExpirationDates,
+      allPurchasedProductIdentifiers: customerInfo.allPurchasedProductIdentifiers,
+      nonSubscriptionTransactions: customerInfo.nonSubscriptionTransactions,
+      activeSubscriptions: customerInfo.activeSubscriptions,
+      entitlements: Object.fromEntries(
+        Object.entries(customerInfo.entitlements.all).map(([key, value]) => [
+          key,
+          {
+            identifier: value.identifier,
+            isActive: value.isActive,
+            willRenew: value.willRenew,
+            periodType: value.periodType,
+            latestPurchaseDate: value.latestPurchaseDate,
+            originalPurchaseDate: value.originalPurchaseDate,
+            expirationDate: value.expirationDate,
+            store: value.store,
+            productIdentifier: value.productIdentifier,
+            isSandbox: value.isSandbox,
+            unsubscribeDetectedAt: value.unsubscribeDetectedAt,
+            billingIssueDetectedAt: value.billingIssueDetectedAt,
+          },
+        ])
+      ),
+    };
+  }
+
+  /**
+   * Get cached offerings
+   */
+  private static async getCachedOfferings(): Promise<Offering[] | null> {
     try {
-      await AsyncStorage.removeItem(RESCUE_OFFER_KEY);
+      const cached = await AsyncStorage.getItem(this.OFFERINGS_CACHE_KEY);
+      if (!cached) return null;
+
+      const { offerings, timestamp } = JSON.parse(cached);
+      const now = Date.now();
+
+      if (now - timestamp > this.CACHE_DURATION) {
+        await AsyncStorage.removeItem(this.OFFERINGS_CACHE_KEY);
+        return null;
+      }
+
+      return offerings;
     } catch (error) {
-      console.error('[Paywall] Dismiss rescue offer error:', error);
+      console.error('[Paywall] Failed to get cached offerings:', error);
+      return null;
     }
   }
 
   /**
-   * Get rescue offer discount
+   * Cache offerings
    */
-  static getRescueDiscount(): number {
-    return RESCUE_DISCOUNT;
+  private static async cacheOfferings(offerings: Offering[]): Promise<void> {
+    try {
+      const cacheData = {
+        offerings,
+        timestamp: Date.now(),
+      };
+      await AsyncStorage.setItem(this.OFFERINGS_CACHE_KEY, JSON.stringify(cacheData));
+    } catch (error) {
+      console.error('[Paywall] Failed to cache offerings:', error);
+    }
   }
 
   /**
-   * Format price with currency
+   * Get mock offerings for development
    */
-  static formatPrice(price: number, currencyCode: string): string {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currencyCode,
-    }).format(price);
-  }
-
-  /**
-   * Calculate savings for annual vs monthly
-   */
-  static calculateSavings(monthlyPrice: number, annualPrice: number): number {
-    const monthlyTotal = monthlyPrice * 12;
-    const savings = monthlyTotal - annualPrice;
-    return Math.round((savings / monthlyTotal) * 100);
-  }
-
-  /**
-   * Get feature list for tier
-   */
-  static getFeaturesForTier(tier: SubscriptionTier): string[] {
-    const features: Record<SubscriptionTier, string[]> = {
-      free: [
-        'Photo food logging',
-        'Manual meal entry',
-        'Daily nutrition totals',
-        'Basic insights',
-        'Food search database',
-      ],
-      pro: [
-        'Everything in Free',
-        'AI meal planning',
-        'Grocery lists',
-        'Weekly analytics',
-        'Insights history',
-        'Advanced tracking',
-        'Data export',
-      ],
-      premium: [
-        'Everything in Pro',
-        'Weekly AI check-ins',
-        'Priority support',
-        'Custom meal plans',
-        'Advanced analytics',
-        'Unlimited meal plans',
-        'Personal nutritionist access',
-      ],
-    };
-
-    return features[tier] || [];
-  }
-
-  /**
-   * Get tier benefits for paywall display
-   */
-  static getTierBenefits(
-    tier: SubscriptionTier
-  ): { title: string; description: string; icon: string }[] {
-    const benefits: Record<
-      SubscriptionTier,
-      { title: string; description: string; icon: string }[]
-    > = {
-      free: [
-        {
-          title: 'Photo Logging',
-          description:
-            'Snap photos of your meals for instant nutrition tracking',
-          icon: 'photo-camera',
-        },
-        {
-          title: 'Daily Totals',
-          description: 'See your daily calorie and macro breakdown',
-          icon: 'bar-chart',
-        },
-        {
-          title: 'Basic Insights',
-          description: 'Get simple tips to improve your nutrition',
-          icon: 'lightbulb',
-        },
-      ],
-      pro: [
-        {
-          title: 'AI Meal Planning',
-          description: 'Get personalized meal plans based on your goals',
-          icon: 'restaurant',
-        },
-        {
-          title: 'Grocery Lists',
-          description: 'Auto-generated shopping lists for your meal plans',
-          icon: 'shopping-bag',
-        },
-        {
-          title: 'Weekly Analytics',
-          description: 'Track your progress with detailed weekly reports',
-          icon: 'show-chart',
-        },
-      ],
-      premium: [
-        {
-          title: 'Weekly AI Check-ins',
-          description: 'Personalized coaching sessions with AI nutritionist',
-          icon: 'psychology',
-        },
-        {
-          title: 'Priority Support',
-          description: 'Get help when you need it with priority support',
-          icon: 'support-agent',
-        },
-        {
-          title: 'Advanced Analytics',
-          description: 'Deep insights into your nutrition patterns',
-          icon: 'analytics',
-        },
-      ],
-    };
-
-    return benefits[tier] || [];
+  private static getMockOfferings(): Offering[] {
+    return [
+      {
+        identifier: 'default',
+        serverDescription: 'Default Offering',
+        availablePackages: [
+          {
+            identifier: 'fiit_pro_yearly',
+            packageType: 'ANNUAL',
+            product: {
+              identifier: 'com.fiit.pro.yearly',
+              description: 'FIIT Pro Yearly',
+              title: 'FIIT Pro Yearly',
+              price: 59.99,
+              priceString: '$59.99',
+              currencyCode: 'USD',
+            },
+          },
+          {
+            identifier: 'fiit_pro_monthly',
+            packageType: 'MONTHLY',
+            product: {
+              identifier: 'com.fiit.pro.monthly',
+              description: 'FIIT Pro Monthly',
+              title: 'FIIT Pro Monthly',
+              price: 9.99,
+              priceString: '$9.99',
+              currencyCode: 'USD',
+            },
+          },
+        ],
+      },
+    ];
   }
 }
