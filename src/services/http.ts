@@ -1,46 +1,39 @@
-// Centralized HTTP client with timeouts, retries, and typed DTOs
-import axios, {
-  AxiosInstance,
-  AxiosRequestConfig,
-  AxiosResponse,
-  AxiosError,
-} from 'axios';
-import Constants from 'expo-constants';
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-// Types
-export interface AppError {
-  message: string;
+// Configuration
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+const TIMEOUT_MS = 8000;
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000;
+
+// Custom error class for normalized error handling
+export class AppError extends Error {
   code?: string;
   status?: number;
-  retryable?: boolean;
+  cause?: unknown;
+  
+  constructor(message: string, opts: { code?: string; status?: number; cause?: unknown } = {}) {
+    super(message);
+    this.name = 'AppError';
+    this.code = opts.code;
+    this.status = opts.status;
+    this.cause = opts.cause;
+  }
 }
-
-export interface ApiResponse<T = any> {
-  data: T;
-  success: boolean;
-  error?: AppError;
-}
-
-// Configuration
-const API_BASE_URL =
-  Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL || 'https://api.fiit.app';
-const DEFAULT_TIMEOUT = 8000; // 8 seconds
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // 1 second base delay
 
 // Create axios instance
-const httpClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: DEFAULT_TIMEOUT,
+export const http = axios.create({
+  baseURL: BASE_URL,
+  timeout: TIMEOUT_MS,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor - attach auth token
-httpClient.interceptors.request.use(
-  async config => {
+// Request interceptor - Add auth header
+http.interceptors.request.use(
+  async (config) => {
     try {
       const token = await SecureStore.getItemAsync('auth_token');
       if (token) {
@@ -51,196 +44,164 @@ httpClient.interceptors.request.use(
     }
     return config;
   },
-  error => Promise.reject(error)
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
-// Response interceptor - handle errors and retries
-httpClient.interceptors.response.use(
+// Response interceptor - Handle errors and 401s
+http.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as AxiosRequestConfig & {
-      _retry?: boolean;
-      _retryCount?: number;
-    };
-
-    // Handle 401 - redirect to auth
-    if (error.response?.status === 401) {
-      await SecureStore.deleteItemAsync('auth_token');
-      // Could emit auth event here
-      return Promise.reject(createAppError(error));
+    const status = error.response?.status;
+    const code = (error as any).code as string | undefined;
+    
+    // Extract error message
+    let message = 'Network error';
+    if (error.response?.data) {
+      const data = error.response.data as any;
+      message = data.message || data.error || data.detail || error.message;
+    } else if (error.message) {
+      message = error.message;
     }
-
-    // Handle 429 - rate limiting
-    if (error.response?.status === 429) {
-      const retryAfter = error.response.headers['retry-after'];
-      const delay = retryAfter ? parseInt(retryAfter) * 1000 : RETRY_DELAY;
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return httpClient(originalRequest);
-    }
-
-    // Handle network errors with retry
-    if (!error.response && originalRequest && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      // Exponential backoff with jitter
-      const retryCount = originalRequest._retryCount || 0;
-      if (retryCount < MAX_RETRIES) {
-        const delay =
-          RETRY_DELAY * Math.pow(2, retryCount) + Math.random() * 1000;
-        await new Promise(resolve => setTimeout(resolve, delay));
-        originalRequest._retryCount = retryCount + 1;
-        return httpClient(originalRequest);
+    
+    // Handle 401 - Sign out user
+    if (status === 401) {
+      try {
+        // Clear stored tokens
+        await SecureStore.deleteItemAsync('auth_token');
+        await SecureStore.deleteItemAsync('refresh_token');
+        await SecureStore.deleteItemAsync('user_data');
+        
+        // Import and call sign out (avoid circular dependency)
+        const { useAuthStore } = await import('@/state/auth.store');
+        useAuthStore.getState().signOut();
+      } catch (signOutError) {
+        console.warn('Failed to sign out user:', signOutError);
       }
     }
-
-    return Promise.reject(createAppError(error));
+    
+    // Create normalized error
+    const appError = new AppError(message, {
+      status,
+      code,
+      cause: error,
+    });
+    
+    return Promise.reject(appError);
   }
 );
 
-// Helper function to create AppError from AxiosError
-function createAppError(error: AxiosError): AppError {
-  if (error.response) {
-    // Server responded with error status
-    return {
-      message: (error.response.data as any)?.message || error.message,
-      code: (error.response.data as any)?.code || 'HTTP_ERROR',
-      status: error.response.status,
-      retryable: error.response.status >= 500,
-    };
-  } else if (error.request) {
-    // Network error
-    return {
-      message: 'Network error - please check your connection',
-      code: 'NETWORK_ERROR',
-      retryable: true,
-    };
-  } else {
-    // Other error
-    return {
-      message: error.message,
-      code: 'UNKNOWN_ERROR',
-      retryable: false,
-    };
-  }
-}
+// GET with retry for idempotent requests
+export async function getWithRetry<T = any>(
+  url: string,
+  config?: AxiosRequestConfig,
+  maxRetries: number = MAX_RETRIES
+): Promise<T> {
+  let lastError: any;
 
-// HTTP methods with proper typing
-export const http = {
-  async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response = await httpClient.get<T>(url, config);
-    return response.data;
-  },
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await http.get<T>(url, config);
+      return response.data;
+    } catch (error) {
+      lastError = error;
 
-  async post<T = any>(
-    url: string,
-    data?: any,
-    config?: AxiosRequestConfig
-  ): Promise<T> {
-    const response = await httpClient.post<T>(url, data, config);
-    return response.data;
-  },
-
-  async put<T = any>(
-    url: string,
-    data?: any,
-    config?: AxiosRequestConfig
-  ): Promise<T> {
-    const response = await httpClient.put<T>(url, data, config);
-    return response.data;
-  },
-
-  async patch<T = any>(
-    url: string,
-    data?: any,
-    config?: AxiosRequestConfig
-  ): Promise<T> {
-    const response = await httpClient.patch<T>(url, data, config);
-    return response.data;
-  },
-
-  async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response = await httpClient.delete<T>(url, config);
-    return response.data;
-  },
-
-  // File upload with progress
-  async upload<T = any>(
-    url: string,
-    file: FormData,
-    onProgress?: (progress: number) => void,
-    config?: AxiosRequestConfig
-  ): Promise<T> {
-    const response = await httpClient.post<T>(url, file, {
-      ...config,
-      headers: {
-        ...config?.headers,
-        'Content-Type': 'multipart/form-data',
-      },
-      onUploadProgress: progressEvent => {
-        if (onProgress && progressEvent.total) {
-          const progress = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          onProgress(progress);
-        }
-      },
-    });
-    return response.data;
-  },
-
-  // GET with retry for idempotent requests
-  async getWithRetry<T = any>(
-    url: string,
-    config?: AxiosRequestConfig,
-    maxRetries: number = MAX_RETRIES
-  ): Promise<T> {
-    let lastError: any;
-
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const response = await httpClient.get<T>(url, config);
-        return response.data;
-      } catch (error) {
-        lastError = error;
-
-        // Don't retry on client errors (4xx) or if it's the last attempt
-        if (
-          attempt === maxRetries ||
-          ((error as AxiosError).response?.status &&
-            (error as AxiosError).response!.status < 500)
-        ) {
-          throw error;
-        }
-
-        // Exponential backoff delay
-        const delay = RETRY_DELAY * Math.pow(2, attempt);
-        await new Promise(resolve => setTimeout(resolve, delay));
+      // Don't retry on client errors (4xx) or if it's the last attempt
+      if (
+        attempt === maxRetries ||
+        ((error as AxiosError).response?.status &&
+          (error as AxiosError).response!.status < 500)
+      ) {
+        throw error;
       }
-    }
 
-    throw lastError;
-  },
-};
-
-// Request cancellation
-export class RequestCanceller {
-  private controller: AbortController | null = null;
-
-  start(): AbortController {
-    this.controller = new AbortController();
-    return this.controller;
-  }
-
-  cancel(): void {
-    if (this.controller) {
-      this.controller.abort();
-      this.controller = null;
+      // Exponential backoff delay with jitter
+      const delay = RETRY_DELAY * Math.pow(2, attempt) + Math.random() * 200;
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 
-  getSignal(): AbortSignal | undefined {
-    return this.controller?.signal;
-  }
+  throw lastError;
 }
 
+// POST with retry for non-idempotent requests (limited retries)
+export async function postWithRetry<T = any>(
+  url: string,
+  data?: any,
+  config?: AxiosRequestConfig,
+  maxRetries: number = 1
+): Promise<T> {
+  let lastError: any;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await http.post<T>(url, data, config);
+      return response.data;
+    } catch (error) {
+      lastError = error;
+
+      // Don't retry on client errors (4xx) or if it's the last attempt
+      if (
+        attempt === maxRetries ||
+        ((error as AxiosError).response?.status &&
+          (error as AxiosError).response!.status < 500)
+      ) {
+        throw error;
+      }
+
+      // Short delay for POST retries
+      const delay = RETRY_DELAY + Math.random() * 500;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError;
+}
+
+// Utility function to create AbortController for request cancellation
+export function createAbortController(timeoutMs: number = TIMEOUT_MS): AbortController {
+  const controller = new AbortController();
+  
+  // Auto-abort after timeout
+  setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+  
+  return controller;
+}
+
+// Utility function to check if error is network related
+export function isNetworkError(error: any): boolean {
+  return (
+    error.code === 'NETWORK_ERROR' ||
+    error.code === 'ECONNABORTED' ||
+    error.message?.includes('Network Error') ||
+    error.message?.includes('timeout')
+  );
+}
+
+// Utility function to check if error is retryable
+export function isRetryableError(error: any): boolean {
+  if (error instanceof AppError) {
+    // Retry on 5xx errors or network errors
+    return (
+      (error.status && error.status >= 500) ||
+      isNetworkError(error)
+    );
+  }
+  
+  if (error instanceof AxiosError) {
+    const status = error.response?.status;
+    return (
+      !status || // Network error
+      status >= 500 || // Server error
+      error.code === 'ECONNABORTED' // Timeout
+    );
+  }
+  
+  return false;
+}
+
+// Export default http instance for direct use
 export default http;
