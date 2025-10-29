@@ -2,53 +2,12 @@
   "expo": {
     "name": "FIIT",
     "slug": "fiit",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
-    "assetBundlePatterns": ["**/*"],
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.devign.fiit",
-      "infoPlist": {
-        "NSUserTrackingUsageDescription": "This app uses tracking to provide personalized content and improve your experience.",
-        "NSCameraUsageDescription": "FIIT needs camera access to scan your meals for automatic calorie logging.",
-        "NSPhotoLibraryUsageDescription": "FIIT needs photo library access to analyze meal photos for calorie tracking."
-      }
-    },
-    "android": {
-      "package": "com.devign.fiit",
-      "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
-      ]
-    },
-    "web": {
-      "bundler": "metro"
-    },
-    "plugins": [
-      "expo-av",
-      "expo-notifications",
-      "expo-apple-authentication",
-      "expo-camera",
-      "expo-image-picker",
-      "expo-font",
-      "expo-localization",
-      "expo-secure-store",
-      "sentry-expo"
-    ],
     "scheme": "fiit",
+    "ios": { "supportsTablet": true },
+    "android": { "adaptiveIcon": { "foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#FFFFFF" } },
+    "web": { "bundler": "metro" },
     "extra": {
-      "RC_IOS_API_KEY": "appl_EZZhGHPzidlBvHAUvXqlhLTqgCP",
-      "RC_ANDROID_API_KEY": "goog_eGehbjajtUQWCTeStonOlzCOuVD",
-      "EXPO_PUBLIC_FIIT_FOOD_API_BASE": "https://fiit-food101-505393897095.us-central1.run.app",
-      "EXPO_PUBLIC_FIIT_API_KEY": "ibAYxc8a6f2xR4hUzdKLiCzki8XXji76y9b9Xgiglj4",
-      "EXPO_PUBLIC_PREDICT_T_HIGH": "0.70",
-      "EXPO_PUBLIC_PREDICT_T_MID": "0.50",
-      "EXPO_PUBLIC_PREDICT_T_LOW": "0.35",
-      "eas": {
-        "projectId": "your-project-id"
-      }
+      "eas": { "projectId": "REPLACE_ME" }
     }
   }
 }

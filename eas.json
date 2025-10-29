@@ -1,54 +1,9 @@
 {
-  "cli": {
-    "version": ">= 12.0.0"
-  },
+  "cli": { "version": ">= 14.0.0" },
   "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "ios": {
-        "resourceClass": "m-medium"
-      },
-      "android": {
-        "buildType": "apk"
-      }
-    },
-    "preview": {
-      "distribution": "internal",
-      "ios": {
-        "resourceClass": "m-medium"
-      },
-      "android": {
-        "buildType": "apk"
-      },
-      "env": {
-        "EXPO_PUBLIC_ENVIRONMENT": "preview"
-      }
-    },
-    "production": {
-      "ios": {
-        "resourceClass": "m-medium"
-      },
-      "android": {
-        "buildType": "aab"
-      },
-      "env": {
-        "EXPO_PUBLIC_ENVIRONMENT": "production"
-      }
-    }
+    "preview": { "developmentClient": true, "distribution": "internal" },
+    "production": { "autoIncrement": true }
   },
-  "submit": {
-    "production": {
-      "ios": {
-        "appleId": "your-apple-id@example.com",
-        "ascAppId": "1234567890",
-        "appleTeamId": "ABCD123456"
-      },
-      "android": {
-        "serviceAccountKeyPath": "./google-service-account.json",
-        "track": "production"
-      }
-    }
-  }
+  "submit": { "production": {} }
 }
 
