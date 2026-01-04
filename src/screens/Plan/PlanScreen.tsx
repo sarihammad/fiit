@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { ActionTypeBadge } from '@/components/ActionTypeBadge';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useCoachStore } from '@/state/coach.store';
 import { AICoachEngine } from '@/services/aiCoach';
@@ -286,15 +287,21 @@ export const PlanScreen: React.FC = () => {
                 </Text>
                 {tasks.map(task => (
                   <View key={task.id} style={{ marginBottom: 6 }}>
-                    <Text
-                      style={{
-                        fontSize: 15,
-                        color: theme.colors.text.primary,
-                        fontWeight: '600',
-                      }}
-                    >
-                      {task.title}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <Text
+                        style={{
+                          fontSize: 15,
+                          color: theme.colors.text.primary,
+                          fontWeight: '600',
+                          flex: 1,
+                        }}
+                      >
+                        {task.title}
+                      </Text>
+                      {task.actionType && (
+                        <ActionTypeBadge actionType={task.actionType} />
+                      )}
+                    </View>
                     <Text style={{ fontSize: 13, color: theme.colors.text.secondary }}>
                       {task.nextAction} · {task.estimateMinutes} min
                     </Text>
@@ -412,15 +419,21 @@ export const PlanScreen: React.FC = () => {
                   </Text>
                   {tasks.map(task => (
                     <View key={`${day}-${task.title}`} style={{ marginBottom: 6 }}>
-                      <Text
-                        style={{
-                          fontSize: 15,
-                          color: theme.colors.text.primary,
-                          fontWeight: '600',
-                        }}
-                      >
-                        {task.title}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <Text
+                          style={{
+                            fontSize: 15,
+                            color: theme.colors.text.primary,
+                            fontWeight: '600',
+                            flex: 1,
+                          }}
+                        >
+                          {task.title}
+                        </Text>
+                        {task.actionType && (
+                          <ActionTypeBadge actionType={task.actionType} />
+                        )}
+                      </View>
                       <Text
                         style={{
                           fontSize: 13,

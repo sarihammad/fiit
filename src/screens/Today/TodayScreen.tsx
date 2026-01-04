@@ -7,6 +7,7 @@ import { useCoachStore } from '@/state/coach.store';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { FocusTimerModal } from '@/components/FocusTimerModal';
+import { ActionTypeBadge } from '@/components/ActionTypeBadge';
 import { AICoachEngine } from '@/services/aiCoach';
 import { track, trackScreenView } from '@/services/analytics';
 import { Copy, formatCopy } from '@/copy/strings';
@@ -179,16 +180,21 @@ export const TodayScreen: React.FC = () => {
               const firstTask = todayTasks[0];
               return (
                 <Card style={{ marginBottom: 16 }}>
-                  <Text
-                    style={{
-                      fontSize: 16,
-                      fontWeight: '600',
-                      color: theme.colors.text.primary,
-                      marginBottom: 6,
-                    }}
-                  >
-                    {firstTask.title}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8 }}>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: '600',
+                        color: theme.colors.text.primary,
+                        flex: 1,
+                      }}
+                    >
+                      {firstTask.title}
+                    </Text>
+                    {firstTask.actionType && (
+                      <ActionTypeBadge actionType={firstTask.actionType} />
+                    )}
+                  </View>
                   <Text
                     style={{
                       fontSize: 18,
@@ -262,16 +268,21 @@ export const TodayScreen: React.FC = () => {
                 {showLaterToday &&
                   todayTasks.slice(1).map(task => (
                     <View key={task.id} style={{ marginTop: 12 }}>
-                      <Text
-                        style={{
-                          fontSize: 15,
-                          fontWeight: '600',
-                          color: theme.colors.text.primary,
-                          marginBottom: 6,
-                        }}
-                      >
-                        {task.title}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8 }}>
+                        <Text
+                          style={{
+                            fontSize: 15,
+                            fontWeight: '600',
+                            color: theme.colors.text.primary,
+                            flex: 1,
+                          }}
+                        >
+                          {task.title}
+                        </Text>
+                        {task.actionType && (
+                          <ActionTypeBadge actionType={task.actionType} />
+                        )}
+                      </View>
                       <Text
                         style={{
                           fontSize: 13,

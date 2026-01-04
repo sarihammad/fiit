@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { GoalClarificationAnswer } from '@/types/coach';
+import { GoalClarificationAnswer, ActionType } from '@/types/coach';
 
 const QuestionSchema = z.object({
   questionKey: z.enum([
@@ -90,6 +90,116 @@ const ensureSchema = <T>(
     return result.data;
   }
   return fallback;
+};
+
+// Infer actionType from task content if missing (safety fallback)
+const inferActionType = (task: {
+  title: string;
+  nextAction: string;
+}): ActionType => {
+  const text = `${task.title} ${task.nextAction}`.toLowerCase();
+  if (text.includes('grocery') || text.includes('shop') || text.includes('buy')) {
+    return 'grocery';
+  }
+  if (text.includes('meal prep') || text.includes('cook') || text.includes('prepare')) {
+    return 'meal_prep';
+  }
+  if (text.includes('protein')) {
+    return 'protein';
+  }
+  if (text.includes('water') || text.includes('hydrat')) {
+    return 'hydration';
+  }
+  if (text.includes('workout') || text.includes('exercise') || text.includes('train')) {
+    return 'workout';
+  }
+  if (text.includes('sleep') || text.includes('rest')) {
+    return 'sleep';
+  }
+  if (text.includes('craving') || text.includes('snack')) {
+    return 'craving_plan';
+  }
+  if (text.includes('kitchen') || text.includes('environment') || text.includes('setup') || text.includes('organize')) {
+    return 'environment';
+  }
+  return 'environment'; // default
+};
+
+// Enforce nutrition plan constraints
+const enforcePlanConstraints = (
+  tasks: z.infer<typeof PlanTaskSchema>[],
+  answers: GoalClarificationAnswer[]
+): z.infer<typeof PlanTaskSchema>[] => {
+  const hasCravings = answers.some(
+    a => a.questionKey === 'habits' && a.answerText.toLowerCase().includes('crav')
+  );
+  
+  // Group tasks by day
+  const tasksByDay = tasks.reduce<Record<string, z.infer<typeof PlanTaskSchema>[]>>(
+    (acc, task) => {
+      acc[task.day] = acc[task.day] || [];
+      acc[task.day].push(task);
+      return acc;
+    },
+    {}
+  );
+
+  const days = Object.keys(tasksByDay).sort();
+  const first48Hours = days.slice(0, 2);
+  
+  // Ensure required keystone actions in first 48 hours
+  const first48Tasks = first48Hours.flatMap(day => tasksByDay[day] || []);
+  const hasGroceryEnv = first48Tasks.some(
+    t => t.actionType === 'grocery' || t.actionType === 'environment'
+  );
+  const hasProtein = first48Tasks.some(t => t.actionType === 'protein');
+  const hasCravingPlan = tasks.some(t => t.actionType === 'craving_plan');
+
+  // Add missing keystone actions if needed
+  if (!hasGroceryEnv && days.length > 0) {
+    const firstDay = days[0];
+    tasks.push({
+      day: firstDay,
+      priority: 1,
+      title: 'Set up your kitchen for success',
+      whyThisMatters: 'A prepared environment makes healthy choices automatic.',
+      nextAction: 'Clear one counter space and stock 3 protein sources.',
+      estimateMinutes: 15,
+      actionType: 'environment',
+    });
+  }
+  
+  if (!hasProtein && days.length > 0) {
+    const firstDay = days[0];
+    tasks.push({
+      day: firstDay,
+      priority: 1,
+      title: 'Hit your protein target today',
+      whyThisMatters: 'Protein keeps you full and supports your goals.',
+      nextAction: 'Eat 30g protein at breakfast and lunch.',
+      estimateMinutes: 10,
+      actionType: 'protein',
+    });
+  }
+
+  if (hasCravings && !hasCravingPlan) {
+    const firstDay = days[0] || new Date().toISOString().slice(0, 10);
+    tasks.push({
+      day: firstDay,
+      priority: 2,
+      title: 'Create a craving plan',
+      whyThisMatters: 'Knowing what to do when cravings hit prevents slips.',
+      nextAction: 'Write down 3 go-to snacks for when cravings hit.',
+      estimateMinutes: 10,
+      actionType: 'craving_plan',
+    });
+  }
+
+  // Ensure all tasks have actionType
+  return tasks.map(task => ({
+    ...task,
+    actionType: task.actionType || inferActionType(task),
+  }));
 };
 
 const buildFallbackQuestion = (
@@ -229,13 +339,31 @@ export const AICoachEngine = {
   ): Promise<z.infer<typeof WeeklyPlanSchema>> => {
     const payloadKey = cacheKey('plan', { goalTitle, answers, weekStart });
     if (coachCache.has(payloadKey)) {
-      return coachCache.get(payloadKey) as z.infer<typeof WeeklyPlanSchema>;
+      const cached = coachCache.get(payloadKey) as z.infer<typeof WeeklyPlanSchema>;
+      // Ensure constraints even on cached plans
+      cached.tasks = enforcePlanConstraints(cached.tasks, answers);
+      return cached;
     }
 
     const fallback = buildFallbackPlan(goalTitle, weekStart);
-    const result = ensureSchema(WeeklyPlanSchema, fallback, fallback);
-    coachCache.set(payloadKey, result);
-    return result;
+    const validated = ensureSchema(WeeklyPlanSchema, fallback, fallback);
+    // Enforce constraints
+    validated.tasks = enforcePlanConstraints(validated.tasks, answers);
+    // Ensure max 3 tasks per day
+    const tasksByDay = validated.tasks.reduce<Record<string, typeof validated.tasks>>(
+      (acc, task) => {
+        acc[task.day] = acc[task.day] || [];
+        acc[task.day].push(task);
+        return acc;
+      },
+      {}
+    );
+    validated.tasks = Object.values(tasksByDay).flatMap(dayTasks =>
+      dayTasks.sort((a, b) => a.priority - b.priority).slice(0, 3)
+    );
+    
+    coachCache.set(payloadKey, validated);
+    return validated;
   },
 
   generateMicroStep: async (
