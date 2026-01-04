@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from './Button';
+import { Copy } from '@/copy/strings';
 
 interface MedicalDisclaimerModalProps {
   visible: boolean;
@@ -22,12 +23,77 @@ export const MedicalDisclaimerModal: React.FC<MedicalDisclaimerModalProps> = ({
   onAccept,
   onDecline,
 }) => {
+  const [showFull, setShowFull] = useState(false);
+
+  const handleAccept = () => {
+    setShowFull(false);
+    onAccept();
+  };
+
+  const handleClose = () => {
+    setShowFull(false);
+    onDecline();
+  };
+
+  // Step 1: Short summary
+  if (!showFull) {
+    return (
+      <Modal
+        visible={visible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleClose}
+      >
+        <SafeAreaView style={styles.container}>
+          <View style={styles.shortContent}>
+            <View style={styles.header}>
+              <MaterialIcons name="medical-services" size={32} color="#dc2626" />
+              <Text style={styles.title}>{Copy.disclaimer.title}</Text>
+            </View>
+
+            <View style={styles.shortSummary}>
+              <Text style={styles.summaryText}>
+                {Copy.disclaimer.notMedicalAdvice}
+              </Text>
+              <Text style={styles.summaryText}>
+                {Copy.disclaimer.consultProfessional}
+              </Text>
+            </View>
+
+            <View style={styles.buttonContainer}>
+              <Button
+                title={Copy.disclaimer.acknowledge}
+                onPress={handleAccept}
+                variant="primary"
+                size="large"
+                fullWidth
+              />
+              <TouchableOpacity
+                onPress={() => setShowFull(true)}
+                style={styles.linkButton}
+              >
+                <Text style={styles.linkText}>Read full disclaimer</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleClose}
+                style={styles.declineButton}
+              >
+                <Text style={styles.declineText}>{Copy.disclaimer.decline}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
+    );
+  }
+
+  // Step 2: Full disclaimer
   return (
     <Modal
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
-      onRequestClose={onDecline}
+      onRequestClose={handleClose}
     >
       <SafeAreaView style={styles.container}>
         <ScrollView
@@ -37,9 +103,9 @@ export const MedicalDisclaimerModal: React.FC<MedicalDisclaimerModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <MaterialIcons name="medical-services" size={32} color="#dc2626" />
-            <Text style={styles.title}>Important Medical Information</Text>
+            <Text style={styles.title}>{Copy.disclaimer.title}</Text>
             <Text style={styles.subtitle}>
-              Please read carefully before continuing
+              {Copy.disclaimer.subtitle}
             </Text>
           </View>
 
@@ -135,8 +201,8 @@ export const MedicalDisclaimerModal: React.FC<MedicalDisclaimerModalProps> = ({
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>
           <Button
-            title="I Understand & Accept"
-            onPress={onAccept}
+            title={Copy.disclaimer.acknowledge}
+            onPress={handleAccept}
             variant="primary"
             size="large"
             fullWidth
@@ -144,12 +210,18 @@ export const MedicalDisclaimerModal: React.FC<MedicalDisclaimerModalProps> = ({
             accessibilityHint="Acknowledges disclaimer and continues to app"
           />
           <TouchableOpacity
-            onPress={onDecline}
+            onPress={() => setShowFull(false)}
+            style={styles.backButton}
+          >
+            <Text style={styles.backText}>Back</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleClose}
             style={styles.declineButton}
             accessibilityRole="button"
             accessibilityLabel="Decline and exit"
           >
-            <Text style={styles.declineText}>I do not accept</Text>
+            <Text style={styles.declineText}>{Copy.disclaimer.decline}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -237,6 +309,42 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
+  },
+  shortContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    justifyContent: 'center',
+  },
+  shortSummary: {
+    marginBottom: 32,
+  },
+  summaryText: {
+    fontSize: 16,
+    color: '#374151',
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  linkButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  linkText: {
+    fontSize: 16,
+    color: '#3b82f6',
+    fontWeight: '500',
+    textDecorationLine: 'underline',
+  },
+  backButton: {
+    marginTop: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  backText: {
+    fontSize: 16,
+    color: '#6b7280',
+    fontWeight: '500',
   },
   declineButton: {
     marginTop: 12,
