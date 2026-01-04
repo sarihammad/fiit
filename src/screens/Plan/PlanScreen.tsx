@@ -460,12 +460,60 @@ export const PlanScreen: React.FC = () => {
               disabled={isGenerating}
             />
             {previewPlan && (
-              <Button
-                title={Copy.plan.commitButton}
-                onPress={handleCommitPlan}
-                variant="primary"
-                style={{ marginTop: 12 }}
-              />
+              <>
+                <View
+                  style={{
+                    marginTop: 20,
+                    marginBottom: 16,
+                    padding: 16,
+                    backgroundColor: theme.colors.background.secondary,
+                    borderRadius: 12,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '600',
+                      color: theme.colors.text.primary,
+                      marginBottom: 12,
+                    }}
+                  >
+                    {Copy.plan.afterCommitTitle}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: theme.colors.text.secondary,
+                      marginBottom: 6,
+                    }}
+                  >
+                    • {Copy.plan.afterCommitBullet1}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: theme.colors.text.secondary,
+                      marginBottom: 6,
+                    }}
+                  >
+                    • {Copy.plan.afterCommitBullet2}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: theme.colors.text.secondary,
+                    }}
+                  >
+                    • {Copy.plan.afterCommitBullet3}
+                  </Text>
+                </View>
+                <Button
+                  title={Copy.plan.commitButton}
+                  onPress={handleCommitPlan}
+                  variant="primary"
+                  style={{ marginTop: 8 }}
+                />
+              </>
             )}
           </Card>
         )}
