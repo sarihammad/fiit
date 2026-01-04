@@ -68,4 +68,44 @@ describe('Coach store', () => {
     store.recordMicroStepUse();
     expect(store.canUseMicroStep().allowed).toBe(false);
   });
+
+  it('adapts plan for avoidance patterns', () => {
+    const store = useCoachStore.getState();
+    const goal = store.createGoal('Hit 140g protein daily');
+    const plan = store.createWeeklyPlan(goal.id, '2025-01-06');
+    const today = '2025-01-06';
+    const tomorrow = '2025-01-07';
+    
+    // Create a task for today and tomorrow
+    const todayTask = store.addPlanTask(plan.id, {
+      title: 'Meal prep for the week',
+      whyThisMatters: 'Prepared meals make hitting protein targets easier.',
+      nextAction: 'Cook 3 protein sources and portion them.',
+      estimateMinutes: 30,
+      scheduledDate: today,
+      priority: 1,
+      actionType: 'meal_prep',
+    });
+    
+    const tomorrowTask = store.addPlanTask(plan.id, {
+      title: 'Meal prep for the week',
+      whyThisMatters: 'Prepared meals make hitting protein targets easier.',
+      nextAction: 'Cook 3 protein sources and portion them.',
+      estimateMinutes: 30,
+      scheduledDate: tomorrow,
+      priority: 1,
+      actionType: 'meal_prep',
+    });
+
+    // Defer today's task twice with "tooLong"
+    store.deferTask(todayTask.id, 'tooLong');
+    store.deferTask(todayTask.id, 'tooLong');
+    
+    // Adapt plan
+    store.adaptPlanForAvoidance(plan.id, today);
+    
+    // Check tomorrow's task was adapted
+    const adapted = useCoachStore.getState().planTasks.find(t => t.id === tomorrowTask.id);
+    expect(adapted?.estimateMinutes).toBeLessThan(30);
+  });
 });

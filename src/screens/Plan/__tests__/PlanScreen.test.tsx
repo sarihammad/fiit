@@ -163,4 +163,13 @@ describe('PlanScreen', () => {
       expect(getByText('Eat protein at every meal')).toBeTruthy();
     });
   });
+
+  it('shows lock benefits before commit', async () => {
+    const { getByText } = render(<PlanScreen />);
+    fireEvent.press(getByText('Build my 7-day plan'));
+    await waitFor(() => {
+      expect(getByText('After you commit:')).toBeTruthy();
+      expect(getByText('This week locks so you stop restarting.')).toBeTruthy();
+    });
+  });
 });

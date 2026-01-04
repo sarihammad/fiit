@@ -164,4 +164,12 @@ describe('TodayScreen', () => {
       expect(getByText('Later today')).toBeTruthy();
     }
   });
+
+  it('opens focus timer modal when Start is pressed', () => {
+    const { getAllByText } = render(<TodayScreen />);
+    const startButtons = getAllByText('Start');
+    fireEvent.press(startButtons[0]);
+    // Timer modal should show time selection
+    expect(getAllByText('5 min').length).toBeGreaterThan(0);
+  });
 });
