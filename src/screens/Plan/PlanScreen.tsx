@@ -162,7 +162,7 @@ export const PlanScreen: React.FC = () => {
                 estimateMinutes: task.estimateMinutes,
                 scheduledDate: task.day,
                 priority: task.priority as 1 | 2 | 3,
-                actionType: task.actionType as any,
+                actionType: task.actionType as ActionType | undefined,
               });
             });
             setGoalStatus(activeGoal.id, 'active');

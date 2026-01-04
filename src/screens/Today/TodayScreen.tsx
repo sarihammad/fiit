@@ -45,6 +45,8 @@ export const TodayScreen: React.FC = () => {
   const [showFocusTimer, setShowFocusTimer] = useState(false);
   const [focusTimerTask, setFocusTimerTask] = useState<typeof todayTasks[0] | null>(null);
 
+  const today = new Date().toISOString().slice(0, 10);
+
   React.useEffect(() => {
     trackScreenView('Today');
     // Adapt plan for avoidance patterns when Today screen opens
@@ -52,8 +54,6 @@ export const TodayScreen: React.FC = () => {
       useCoachStore.getState().adaptPlanForAvoidance(activePlanId, today);
     }
   }, [activePlanId, today]);
-
-  const today = new Date().toISOString().slice(0, 10);
   const microStepRemaining = useMemo(() => {
     if (!microStepWindowStart) {
       return microStepLimit;
