@@ -73,6 +73,7 @@ interface CoachState {
   recordPlanReset: () => void;
   canUseMicroStep: () => { allowed: boolean; remaining: number };
   recordMicroStepUse: () => void;
+  adaptPlanForAvoidance: (weeklyPlanId: string, date: string) => void;
   resetCoach: () => void;
 }
 
@@ -302,6 +303,198 @@ export const useCoachStore = create<CoachState>()(
           ),
           activePlanId: undefined,
         }));
+      },
+
+      adaptPlanForAvoidance: (weeklyPlanId, date) => {
+        const state = get();
+        const tomorrow = new Date(date);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+        
+        // Get tasks deferred >= 2 times with same reason
+        const deferredTasks = state.planTasks.filter(
+          task =>
+            task.weeklyPlanId === weeklyPlanId &&
+            task.deferCount >= 2 &&
+            task.lastDeferReason &&
+            task.scheduledDate === date
+        );
+
+        // Get tomorrow's tasks
+        const tomorrowTasks = state.planTasks.filter(
+          task =>
+            task.weeklyPlanId === weeklyPlanId &&
+            task.scheduledDate === tomorrowStr &&
+            task.status !== 'done'
+        );
+
+        // Group by defer reason
+        const byReason = deferredTasks.reduce<
+          Record<string, typeof deferredTasks>
+        >((acc, task) => {
+          const reason = task.lastDeferReason || 'unknown';
+          acc[reason] = acc[reason] || [];
+          acc[reason].push(task);
+          return acc;
+        }, {});
+
+        // Apply adaptations
+        const updates: Array<{ id: string; updates: Partial<PlanTask> }> = [];
+        const newTasks: Array<Omit<PlanTask, 'id' | 'weeklyPlanId' | 'status' | 'deferCount' | 'createdAt' | 'updatedAt' | 'lastDeferredAt' | 'lastDeferReason'> & { status?: PlanTaskStatus }> = [];
+
+        // tooLong: reduce estimate and make nextAction smaller
+        if (byReason.tooLong && byReason.tooLong.length > 0) {
+          byReason.tooLong.forEach(task => {
+            const tomorrowTask = tomorrowTasks.find(
+              t => t.title === task.title || t.priority === task.priority
+            );
+            if (tomorrowTask) {
+              const newEstimate = Math.max(
+                5,
+                Math.floor(tomorrowTask.estimateMinutes * 0.5)
+              );
+              updates.push({
+                id: tomorrowTask.id,
+                updates: {
+                  estimateMinutes: newEstimate,
+                  nextAction: tomorrowTask.nextAction.split('.')[0] + '.',
+                },
+              });
+            }
+          });
+        }
+
+        // tooHard: split into setup + main
+        if (byReason.tooHard && byReason.tooHard.length > 0) {
+          byReason.tooHard.forEach(task => {
+            const tomorrowTask = tomorrowTasks.find(
+              t => t.title === task.title || t.priority === task.priority
+            );
+            if (tomorrowTask && tomorrowTasks.length < 3) {
+              // Create setup task
+              newTasks.push({
+                title: `Get ready: ${tomorrowTask.title}`,
+                whyThisMatters: 'Breaking this into smaller steps makes it doable.',
+                nextAction: 'Spend 5 minutes gathering what you need.',
+                estimateMinutes: 5,
+                scheduledDate: tomorrowStr,
+                priority: (tomorrowTask.priority as 1 | 2 | 3) || 1,
+                actionType: tomorrowTask.actionType || 'environment',
+                status: 'todo',
+              });
+              // Update main task
+              updates.push({
+                id: tomorrowTask.id,
+                updates: {
+                  priority: Math.min(3, (tomorrowTask.priority || 1) + 1) as 1 | 2 | 3,
+                },
+              });
+            }
+          });
+        }
+
+        // dontKnowHow: insert research action
+        if (byReason.dontKnowHow && byReason.dontKnowHow.length > 0) {
+          byReason.dontKnowHow.forEach(task => {
+            if (tomorrowTasks.length < 3) {
+              const tomorrowTask = tomorrowTasks.find(
+                t => t.title === task.title || t.priority === task.priority
+              );
+              newTasks.push({
+                title: 'Get clear on the next step',
+                whyThisMatters: 'Clarity removes resistance.',
+                nextAction: 'Spend 5 minutes researching or asking one person.',
+                estimateMinutes: 5,
+                scheduledDate: tomorrowStr,
+                priority: 1,
+                actionType: 'environment',
+                status: 'todo',
+              });
+            }
+          });
+        }
+
+        // notImportant: replace with keystone action if missing
+        if (byReason.notImportant && byReason.notImportant.length > 0) {
+          byReason.notImportant.forEach(task => {
+            const tomorrowTask = tomorrowTasks.find(
+              t => t.id === task.id || (t.title === task.title && t.priority === task.priority)
+            );
+            if (tomorrowTask) {
+              // Check if keystone actions exist
+              const hasProtein = tomorrowTasks.some(t => t.actionType === 'protein');
+              const hasHydration = tomorrowTasks.some(t => t.actionType === 'hydration');
+              const hasEnvironment = tomorrowTasks.some(t => t.actionType === 'environment');
+
+              // Replace with missing keystone
+              if (!hasProtein) {
+                updates.push({
+                  id: tomorrowTask.id,
+                  updates: {
+                    title: 'Hit your protein target today',
+                    whyThisMatters: 'Protein keeps you full and supports your goals.',
+                    nextAction: 'Eat 30g protein at breakfast and lunch.',
+                    estimateMinutes: 10,
+                    actionType: 'protein',
+                    priority: 1,
+                  },
+                });
+              } else if (!hasHydration) {
+                updates.push({
+                  id: tomorrowTask.id,
+                  updates: {
+                    title: 'Track your water intake',
+                    whyThisMatters: 'Hydration supports energy and reduces false hunger.',
+                    nextAction: 'Drink 8 glasses of water today.',
+                    estimateMinutes: 5,
+                    actionType: 'hydration',
+                    priority: 1,
+                  },
+                });
+              } else if (!hasEnvironment) {
+                updates.push({
+                  id: tomorrowTask.id,
+                  updates: {
+                    title: 'Set up your environment',
+                    whyThisMatters: 'A prepared environment makes healthy choices automatic.',
+                    nextAction: 'Clear one counter space and stock 3 protein sources.',
+                    estimateMinutes: 15,
+                    actionType: 'environment',
+                    priority: 1,
+                  },
+                });
+              } else {
+                // Just demote priority
+                updates.push({
+                  id: tomorrowTask.id,
+                  updates: {
+                    priority: 3,
+                  },
+                });
+              }
+            }
+          });
+        }
+
+        // Apply updates
+        set(state => ({
+          planTasks: state.planTasks.map(task => {
+            const update = updates.find(u => u.id === task.id);
+            if (update) {
+              return {
+                ...task,
+                ...update.updates,
+                updatedAt: new Date().toISOString(),
+              };
+            }
+            return task;
+          }),
+        }));
+
+        // Add new tasks
+        newTasks.forEach(task => {
+          get().addPlanTask(weeklyPlanId, task);
+        });
       },
 
       resetCoach: () =>

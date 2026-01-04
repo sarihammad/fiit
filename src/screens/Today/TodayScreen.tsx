@@ -47,7 +47,11 @@ export const TodayScreen: React.FC = () => {
 
   React.useEffect(() => {
     trackScreenView('Today');
-  }, []);
+    // Adapt plan for avoidance patterns when Today screen opens
+    if (activePlanId) {
+      useCoachStore.getState().adaptPlanForAvoidance(activePlanId, today);
+    }
+  }, [activePlanId, today]);
 
   const today = new Date().toISOString().slice(0, 10);
   const microStepRemaining = useMemo(() => {
@@ -358,6 +362,10 @@ export const TodayScreen: React.FC = () => {
                           taskId: showDeferReason,
                           deferReason: reason,
                         });
+                        // Adapt plan after defer
+                        if (activePlanId) {
+                          useCoachStore.getState().adaptPlanForAvoidance(activePlanId, today);
+                        }
                         setShowDeferReason(null);
                       }
                     }}
