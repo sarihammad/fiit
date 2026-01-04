@@ -1,5 +1,5 @@
 import io, os, logging
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from PIL import Image, ImageOps
@@ -8,7 +8,8 @@ import numpy as np
 from transformers import AutoImageProcessor, AutoModelForImageClassification
 import requests
 import csv
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+from pydantic import BaseModel
 import secrets
 from datetime import datetime, timedelta
 import hashlib
@@ -82,7 +83,7 @@ app.add_exception_handler(ModelError, model_exception_handler)
 app.add_exception_handler(ExternalAPIError, external_api_exception_handler)
 
 # Security middleware
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 # CORS with production configuration
 app.add_middleware(
@@ -117,14 +118,32 @@ async def rate_limit_middleware(request: Request, call_next):
     return response
 
 # Authentication dependency
-async def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    if credentials.credentials != config.API_KEY:
+async def verify_api_key(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    x_api_key: Optional[str] = Header(default=None, alias="X-API-Key")
+):
+    provided_key = x_api_key or (credentials.credentials if credentials else None)
+
+    if not provided_key or provided_key != config.API_KEY:
         if metrics:
             metrics.increment("auth_failed")
         raise AuthenticationError("Invalid API key")
     if metrics:
         metrics.increment("auth_success")
     return credentials
+
+# AI proxy request models
+class AIProxyMessage(BaseModel):
+    role: str
+    content: str
+
+class AIProxyRequest(BaseModel):
+    provider: str = "openai"
+    model: Optional[str] = None
+    messages: List[AIProxyMessage]
+    max_tokens: Optional[int] = 1000
+    temperature: Optional[float] = 0.7
+    response_format: Optional[Dict[str, Any]] = None
 
 # Load model with timeout handling
 logger.info(f"Loading model: {config.MODEL_ID}")
@@ -318,6 +337,79 @@ async def get_status():
         },
         "timestamp": datetime.utcnow().isoformat()
     }
+
+@app.post("/ai/analyze")
+async def analyze_ai(
+    payload: AIProxyRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(verify_api_key)
+):
+    """Proxy AI requests through the backend to keep provider keys off clients"""
+    provider = payload.provider.lower().strip()
+
+    if provider == "openai":
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ExternalAPIError("OpenAI API key not configured")
+
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            },
+            json={
+                "model": payload.model or "gpt-4",
+                "messages": [m.dict() for m in payload.messages],
+                "max_tokens": payload.max_tokens or 1000,
+                "temperature": payload.temperature or 0.7,
+                **({"response_format": payload.response_format} if payload.response_format else {}),
+            },
+            timeout=15,
+        )
+        try:
+            response.raise_for_status()
+        except Exception as exc:
+            raise ExternalAPIError(f"OpenAI API error: {response.status_code}") from exc
+
+        result = response.json()
+        content = result.get("choices", [{}])[0].get("message", {}).get("content")
+        if not content:
+            raise ExternalAPIError("OpenAI response missing content")
+        return {"content": content}
+
+    if provider == "anthropic":
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ExternalAPIError("Anthropic API key not configured")
+
+        response = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+            },
+            json={
+                "model": payload.model or "claude-3-sonnet-20240229",
+                "max_tokens": payload.max_tokens or 1000,
+                "temperature": payload.temperature or 0.7,
+                "messages": [m.dict() for m in payload.messages],
+            },
+            timeout=15,
+        )
+        try:
+            response.raise_for_status()
+        except Exception as exc:
+            raise ExternalAPIError(f"Anthropic API error: {response.status_code}") from exc
+
+        result = response.json()
+        content_items = result.get("content") or []
+        content = content_items[0].get("text") if content_items else None
+        if not content:
+            raise ExternalAPIError("Anthropic response missing content")
+        return {"content": content}
+
+    raise ValidationError(f"Unsupported AI provider: {payload.provider}")
 
 @app.get("/health")
 async def health():

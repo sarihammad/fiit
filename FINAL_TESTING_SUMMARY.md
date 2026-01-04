@@ -386,3 +386,4 @@ EXPO_PUBLIC_POSTHOG_KEY=your_key
 **Built with ❤️ following Clean Architecture, SOLID principles, and best practices.**
 
 _Last Updated: October 7, 2025, 2:00 PM PT_
+# NOTE: Legacy nutrition-era document. Current product is the FIIT execution coach. See `README.md`.

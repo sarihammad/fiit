@@ -111,14 +111,10 @@ export const TermsScreen: React.FC = () => {
             marginBottom: 16,
           }}
         >
-          FIIT provides general nutrition coaching and is not a substitute for
-          professional medical advice, diagnosis, or treatment. Always seek the
-          advice of your physician or other qualified health provider with any
-          questions you may have regarding a medical condition.
-          {'\n\n'}
-          FIIT is not intended to diagnose, treat, cure, or prevent any disease.
-          Individual results may vary. The "Lose 7 lbs in 30 days" promise is
-          based on typical results when following the program consistently.
+          FIIT provides general execution coaching and is not a substitute for
+          professional advice. You are responsible for your own decisions and
+          outcomes. Individual results may vary based on consistency and
+          context.
         </Text>
 
         <Text
@@ -163,10 +159,10 @@ export const TermsScreen: React.FC = () => {
             marginBottom: 16,
           }}
         >
-          FIIT offers subscriptions with a 7-day free trial:
-          {'\n\n'}• Weekly: $9/week
-          {'\n'}• Yearly: $79/year (best value)
-          {'\n'}• Premium: $199/year
+          FIIT offers subscriptions with a trial period:
+          {'\n\n'}• Monthly
+          {'\n'}• Yearly (best value)
+          {'\n'}• Premium
           {'\n\n'}
           Your subscription will automatically renew unless cancelled at least
           24 hours before the end of the current period. You can manage your

@@ -1,88 +1,52 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '@/providers/ThemeProvider';
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  StyleProp,
+  ViewStyle,
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { DesignSystem } from "@/design-system";
 
 interface ErrorBannerProps {
-  title: string;
   message: string;
   onRetry?: () => void;
   onDismiss?: () => void;
-  style?: any;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const ErrorBanner: React.FC<ErrorBannerProps> = ({
-  title,
   message,
   onRetry,
   onDismiss,
   style,
 }) => {
-  const { theme } = useTheme();
-
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: theme.colors.error?.[50] || '#fef2f2',
-          borderColor: theme.colors.error?.[200] || '#fecaca',
-        },
-        style,
-      ]}
-    >
+    <View style={[styles.container, style]}>
       <View style={styles.content}>
         <MaterialIcons
           name="error-outline"
           size={20}
-          color={theme.colors.error?.[500] || '#ef4444'}
+          color={DesignSystem.colors.error[500]}
           style={styles.icon}
         />
-        <View style={styles.textContainer}>
-          <Text
-            style={[
-              styles.title,
-              { color: theme.colors.error?.[700] || '#b91c1c' },
-            ]}
-          >
-            {title}
-          </Text>
-          <Text
-            style={[
-              styles.message,
-              { color: theme.colors.error?.[600] || '#dc2626' },
-            ]}
-          >
-            {message}
-          </Text>
-        </View>
+        <Text style={styles.message}>{message}</Text>
       </View>
-      
+
       <View style={styles.actions}>
         {onRetry && (
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              { backgroundColor: theme.colors.error?.[500] || '#ef4444' },
-            ]}
-            onPress={onRetry}
-            accessibilityRole="button"
-            accessibilityLabel="Retry"
-          >
+          <TouchableOpacity onPress={onRetry} style={styles.actionButton}>
             <Text style={styles.actionText}>Retry</Text>
           </TouchableOpacity>
         )}
         {onDismiss && (
-          <TouchableOpacity
-            style={styles.dismissButton}
-            onPress={onDismiss}
-            accessibilityRole="button"
-            accessibilityLabel="Dismiss"
-          >
+          <TouchableOpacity onPress={onDismiss} style={styles.actionButton}>
             <MaterialIcons
               name="close"
-              size={20}
-              color={theme.colors.text.secondary}
+              size={16}
+              color={DesignSystem.colors.text.secondary}
             />
           </TouchableOpacity>
         )}
@@ -93,86 +57,43 @@ export const ErrorBanner: React.FC<ErrorBannerProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 16,
-    margin: 16,
+    backgroundColor: DesignSystem.colors.error[50],
+    borderLeftWidth: 4,
+    borderLeftColor: DesignSystem.colors.error[500],
+    borderRadius: DesignSystem.borderRadius.md,
+    padding: DesignSystem.spacing.md,
+    marginVertical: DesignSystem.spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   content: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
   },
   icon: {
-    marginRight: 12,
-    marginTop: 2,
-  },
-  textContainer: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    marginRight: DesignSystem.spacing.sm,
   },
   message: {
-    fontSize: 14,
-    lineHeight: 20,
+    flex: 1,
+    fontSize: DesignSystem.typography.fontSize.sm,
+    color: DesignSystem.colors.error[700],
+    fontWeight: DesignSystem.typography.fontWeight.medium,
   },
   actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   actionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginRight: 8,
-    minHeight: 44,
-    justifyContent: 'center',
+    paddingHorizontal: DesignSystem.spacing.sm,
+    paddingVertical: DesignSystem.spacing.xs,
   },
   actionText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  dismissButton: {
-    padding: 8,
-    minHeight: 44,
-    minWidth: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
+    fontSize: DesignSystem.typography.fontSize.sm,
+    color: DesignSystem.colors.error[600],
+    fontWeight: DesignSystem.typography.fontWeight.semibold,
   },
 });
 
-// Common error patterns
-export const NetworkErrorBanner: React.FC<{ onRetry: () => void }> = ({
-  onRetry,
-}) => (
-  <ErrorBanner
-    title="Connection Error"
-    message="Please check your internet connection and try again."
-    onRetry={onRetry}
-  />
-);
-
-export const AuthErrorBanner: React.FC<{ onRetry: () => void }> = ({
-  onRetry,
-}) => (
-  <ErrorBanner
-    title="Authentication Error"
-    message="Your session has expired. Please sign in again."
-    onRetry={onRetry}
-  />
-);
-
-export const PhotoErrorBanner: React.FC<{ onRetry: () => void }> = ({
-  onRetry,
-}) => (
-  <ErrorBanner
-    title="Photo Analysis Failed"
-    message="We couldn't analyze your photo. Please try again or add the meal manually."
-    onRetry={onRetry}
-  />
-);
+export default ErrorBanner;

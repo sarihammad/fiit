@@ -1,11 +1,22 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import * as Sentry from 'sentry-expo';
 
+interface PostHogInitOptions {
+  host?: string;
+  captureNativeAppLifecycleEvents?: boolean;
+}
+
+interface PostHogClient {
+  init: (apiKey: string, options?: PostHogInitOptions) => void;
+  capture: (event: string, properties?: Record<string, unknown>) => void;
+  identify: (userId: string, traits?: Record<string, unknown>) => void;
+}
+
 // Try to import PostHog
-let posthog: any = null;
+let posthog: PostHogClient | null = null;
 try {
   const PostHogModule = require('posthog-react-native');
-  posthog = PostHogModule.default || PostHogModule;
+  posthog = (PostHogModule.default || PostHogModule) as PostHogClient;
 } catch (error) {
   console.log('[Analytics] PostHog not available');
 }
@@ -39,6 +50,21 @@ if (SENTRY_DSN) {
 
 // Analytics event types for FIIT
 export type AnalyticsEvent =
+  | 'screen_viewed'
+  | 'goal_intake_submitted'
+  | 'clarification_answered'
+  | 'clarification_completed'
+  | 'weekly_plan_preview_requested'
+  | 'weekly_plan_preview_generated'
+  | 'weekly_plan_committed'
+  | 'weekly_plan_reset_confirmed'
+  | 'weekly_plan_reset_blocked'
+  | 'task_completed'
+  | 'task_deferred'
+  | 'microstep_requested'
+  | 'microstep_generated'
+  | 'microstep_limit_reached'
+  | 'microstep_cta_clicked'
   | 'onboarding_completed'
   | 'meal_scanned'
   | 'meal_manual'
@@ -65,9 +91,9 @@ export type AnalyticsEvent =
   | 'food_recognition_fallback';
 
 interface AnalyticsContextType {
-  trackEvent: (event: AnalyticsEvent, properties?: Record<string, any>) => void;
-  identifyUser: (userId: string, traits?: Record<string, any>) => void;
-  captureError: (error: Error, context?: Record<string, any>) => void;
+  trackEvent: (event: AnalyticsEvent, properties?: Record<string, unknown>) => void;
+  identifyUser: (userId: string, traits?: Record<string, unknown>) => void;
+  captureError: (error: Error, context?: Record<string, unknown>) => void;
 }
 
 const AnalyticsContext = createContext<AnalyticsContextType | undefined>(
@@ -110,7 +136,7 @@ export const AnalyticsProvider: React.FC<AnalyticsProviderProps> = ({
 
   const trackEvent = (
     event: AnalyticsEvent,
-    properties?: Record<string, any>
+    properties?: Record<string, unknown>
   ) => {
     const timestamp = new Date().toISOString();
     const eventData = {
@@ -148,7 +174,7 @@ export const AnalyticsProvider: React.FC<AnalyticsProviderProps> = ({
     }
   };
 
-  const identifyUser = (userId: string, traits?: Record<string, any>) => {
+  const identifyUser = (userId: string, traits?: Record<string, unknown>) => {
     if (__DEV__) {
       console.log('[Analytics Identify]', { userId, traits });
     }
@@ -171,7 +197,7 @@ export const AnalyticsProvider: React.FC<AnalyticsProviderProps> = ({
     }
   };
 
-  const captureError = (error: Error, context?: Record<string, any>) => {
+  const captureError = (error: Error, context?: Record<string, unknown>) => {
     console.error('[Analytics] Error captured:', error, context);
 
     // Send to Sentry
@@ -213,14 +239,14 @@ export const useTrackScreen = (screenName: string) => {
   const { trackEvent } = useAnalytics();
 
   useEffect(() => {
-    trackEvent('insight_viewed', { screen: screenName });
+    trackEvent('screen_viewed', { screen: screenName });
   }, [screenName, trackEvent]);
 };
 
 // Exported tracking function for use outside React components
 export const track = (
   event: AnalyticsEvent,
-  properties?: Record<string, any>
+  properties?: Record<string, unknown>
 ) => {
   const timestamp = new Date().toISOString();
 
@@ -238,7 +264,7 @@ export const track = (
 };
 
 // Error capture function for use outside React components
-export const captureError = (error: Error, context?: Record<string, any>) => {
+export const captureError = (error: Error, context?: Record<string, unknown>) => {
   console.error('[Error]', error, context);
 
   if (SENTRY_DSN) {

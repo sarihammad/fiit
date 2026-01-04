@@ -1,4 +1,25 @@
 import { z } from 'zod';
+import {
+  MacroNutrientsSchema,
+  MealPredictionSchema,
+  MealPredictionResponseSchema,
+  ConfirmMealRequestSchema,
+  ConfirmMealResponseSchema,
+  MealItemSchema,
+  LogMealRequestSchema,
+  LogMealResponseSchema,
+} from './meals';
+
+export {
+  MacroNutrientsSchema,
+  MealPredictionSchema,
+  MealPredictionResponseSchema,
+  ConfirmMealRequestSchema,
+  ConfirmMealResponseSchema,
+  MealItemSchema,
+  LogMealRequestSchema,
+  LogMealResponseSchema,
+};
 
 // Base schemas
 export const BaseEntitySchema = z.object({
@@ -36,76 +57,7 @@ export const SessionSchema = z.object({
   isAuthenticated: z.boolean(),
 });
 
-// Meal and nutrition schemas
-export const MacroNutrientsSchema = z.object({
-  calories: z.number().min(0),
-  protein_g: z.number().min(0),
-  carbs_g: z.number().min(0),
-  fat_g: z.number().min(0),
-  fiber_g: z.number().min(0).optional(),
-});
-
-export const MealPredictionSchema = z.object({
-  label: z.string(),
-  confidence: z.number().min(0).max(1),
-  nutrition: MacroNutrientsSchema.optional(),
-  fdcId: z.number().optional(),
-});
-
-export const MealPredictionResponseSchema = z.object({
-  predictions: z.array(MealPredictionSchema),
-  decision: z.enum(['auto_accept', 'confirm', 'fallback']),
-  processingTime: z.number(),
-  modelVersion: z.string().optional(),
-});
-
-export const ConfirmMealRequestSchema = z.object({
-  predictionId: z.string(),
-  selectedLabel: z.string(),
-  portionSize: z.number().min(0),
-  adjustments: z.object({
-    calories: z.number().optional(),
-    protein: z.number().optional(),
-    carbs: z.number().optional(),
-    fat: z.number().optional(),
-  }).optional(),
-});
-
-export const ConfirmMealResponseSchema = z.object({
-  mealItem: z.object({
-    id: z.string(),
-    label: z.string(),
-    quantity: z.number(),
-    nutrition: MacroNutrientsSchema,
-    timestamp: z.string().datetime(),
-  }),
-  dailyTotals: MacroNutrientsSchema,
-});
-
-export const MealItemSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  quantity: z.number().min(0),
-  nutrition: MacroNutrientsSchema,
-  timestamp: z.string().datetime(),
-  source: z.enum(['vision', 'search', 'manual']),
-});
-
-export const LogMealRequestSchema = z.object({
-  mealItem: MealItemSchema,
-  photoUri: z.string().optional(),
-});
-
-export const LogMealResponseSchema = z.object({
-  mealItem: MealItemSchema,
-  dailyTotals: MacroNutrientsSchema,
-  weeklyProgress: z.object({
-    calories: z.number(),
-    protein: z.number(),
-    carbs: z.number(),
-    fat: z.number(),
-  }),
-});
+// Meal and nutrition schemas are sourced from ./meals
 
 // Meal planning schemas
 export const MealPlanDaySchema = z.object({
@@ -264,14 +216,16 @@ export type AuthTokens = z.infer<typeof AuthTokensSchema>;
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 export type Session = z.infer<typeof SessionSchema>;
 
-export type MacroNutrients = z.infer<typeof MacroNutrientsSchema>;
-export type MealPrediction = z.infer<typeof MealPredictionSchema>;
-export type MealPredictionResponse = z.infer<typeof MealPredictionResponseSchema>;
-export type ConfirmMealRequest = z.infer<typeof ConfirmMealRequestSchema>;
-export type ConfirmMealResponse = z.infer<typeof ConfirmMealResponseSchema>;
-export type MealItem = z.infer<typeof MealItemSchema>;
-export type LogMealRequest = z.infer<typeof LogMealRequestSchema>;
-export type LogMealResponse = z.infer<typeof LogMealResponseSchema>;
+export type {
+  MacroNutrients,
+  MealPrediction,
+  MealPredictionResponse,
+  ConfirmMealRequest,
+  ConfirmMealResponse,
+  MealItem,
+  LogMealRequest,
+  LogMealResponse,
+} from './meals';
 
 export type MealPlanDay = z.infer<typeof MealPlanDaySchema>;
 export type MealPlan = z.infer<typeof MealPlanSchema>;

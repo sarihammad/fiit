@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AuthService, AuthResult } from '@/services/auth';
-import { User, AuthTokens } from '@/types/api';
+import { AuthService } from '@/services/auth';
+import { User } from '@/types/api';
 
 // Auth state interface
 export interface AuthState {
@@ -20,7 +20,9 @@ export interface AuthState {
   signUpWithEmail: (email: string, password: string, name: string) => Promise<boolean>;
   signInGoogle: () => Promise<boolean>;
   signInApple: () => Promise<boolean>;
-  createAnonymousAccount: () => Promise<void>;
+  signInWithGoogle: () => Promise<boolean>;
+  signInWithApple: () => Promise<boolean>;
+  createAnonymousAccount: () => Promise<boolean>;
   signOut: () => Promise<void>;
   reset: () => void;
   clearError: () => void;
@@ -202,7 +204,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       // Create anonymous account
-      createAnonymousAccount: async (): Promise<void> => {
+      createAnonymousAccount: async (): Promise<boolean> => {
         try {
           set({ isLoading: true, error: null });
 
@@ -214,12 +216,14 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
               didSkip: false,
             });
+            return true;
           } else {
             set({
               error: result?.error || 'Failed to create guest account',
               isLoading: false,
               didSkip: true,
             });
+            return false;
           }
         } catch (error) {
           console.error('Guest account creation error:', error);
@@ -228,6 +232,7 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             didSkip: true,
           });
+          return false;
         }
       },
 
@@ -268,6 +273,9 @@ export const useAuthStore = create<AuthState>()(
       clearError: (): void => {
         set({ error: null });
       },
+
+      signInWithGoogle: async (): Promise<boolean> => get().signInGoogle(),
+      signInWithApple: async (): Promise<boolean> => get().signInApple(),
     }),
     {
       name: 'auth-storage',
@@ -296,6 +304,8 @@ export const useAuthActions = () => useAuthStore((state) => ({
   signUpWithEmail: state.signUpWithEmail,
   signInGoogle: state.signInGoogle,
   signInApple: state.signInApple,
+  signInWithGoogle: state.signInWithGoogle,
+  signInWithApple: state.signInWithApple,
   createAnonymousAccount: state.createAnonymousAccount,
   signOut: state.signOut,
   reset: state.reset,

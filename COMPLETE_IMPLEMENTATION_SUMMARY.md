@@ -388,3 +388,4 @@ All features:
 **🎉 CONGRATULATIONS! All 9 features implemented and production-ready! 🎉**
 
 _Last Updated: October 7, 2025_
+# NOTE: Legacy nutrition-era document. Current product is the FIIT execution coach. See `README.md`.

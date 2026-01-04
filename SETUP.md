@@ -12,8 +12,8 @@ Create a `.env` file in the root directory with the following variables:
 # API Configuration
 EXPO_PUBLIC_API_URL=https://api.fiit.app
 
-# OpenAI Configuration (for AI meal planning and feedback)
-EXPO_PUBLIC_OPENAI_API_KEY=sk-your_openai_api_key_here
+# AI Proxy Configuration (client chooses provider, keys live on backend)
+EXPO_PUBLIC_AI_PROVIDER=openai
 
 # Nutritionix Configuration (for food search and logging)
 EXPO_PUBLIC_NUTRITIONIX_APP_ID=your_nutritionix_app_id
@@ -34,24 +34,23 @@ RC_IOS_API_KEY=your_ios_api_key_here
 RC_ANDROID_API_KEY=your_android_api_key_here
 ```
 
-## OpenAI Setup
+## AI Provider Setup
 
-### 1. Get API Key
+### 1. Get API Key (Backend)
 
-1. Go to [OpenAI Platform](https://platform.openai.com/)
+1. Go to [OpenAI Platform](https://platform.openai.com/) or [Anthropic Console](https://console.anthropic.com/)
 2. Create an account or sign in
-3. Navigate to API keys
-4. Create a new API key
-5. Add to `.env`: `EXPO_PUBLIC_OPENAI_API_KEY=sk-...`
+3. Create an API key
+4. Set it on the backend service:
+   - `OPENAI_API_KEY=sk-...` or `ANTHROPIC_API_KEY=...`
 
-### 2. Model Configuration
+### 2. Client Configuration
 
 FIIT uses `gpt-4o-mini` by default for cost-effective AI responses. To use a different model, update `src/services/ai.ts`:
 
 ```typescript
 AIService.initialize({
   provider: 'openai',
-  apiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
   model: 'gpt-4o', // or 'gpt-4', 'gpt-3.5-turbo'
 });
 ```

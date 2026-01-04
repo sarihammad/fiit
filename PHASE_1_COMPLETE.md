@@ -391,4 +391,5 @@ All P0 tasks delivered. App is production-ready for v1.0 launch pending device t
 ---
 
 _Next: User testing → Device verification → App Store submission prep_
+# NOTE: Legacy nutrition-era document. Current product is the FIIT execution coach. See `README.md`.
 

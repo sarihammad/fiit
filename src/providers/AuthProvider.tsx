@@ -6,10 +6,11 @@ import React, {
   ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AuthService, AuthUser } from '@/services/auth';
+import { AuthService } from '@/services/auth';
+import { User } from '@/types/api';
 
 interface AuthContextType {
-  user: AuthUser | null;
+  user: User | null;
   isLoading: boolean;
   signInWithApple: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -27,7 +28,7 @@ interface AuthProviderProps {
 const USER_STORAGE_KEY = '@fiit_user';
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load user from storage on app start
@@ -48,7 +49,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const saveUserToStorage = async (userData: AuthUser | null) => {
+  const saveUserToStorage = async (userData: User | null) => {
     try {
       if (userData) {
         await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));

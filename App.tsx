@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppRegistry } from 'react-native';
+import { Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
@@ -9,15 +10,20 @@ import { ThemeProvider } from '@/providers/ThemeProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { PurchasesProvider } from '@/providers/PurchasesProvider';
 import { AnalyticsProvider } from '@/providers/AnalyticsProvider';
-import { AIProvider } from '@/providers/AIProvider';
 import { RootStack } from '@/app/RootStack';
 import { setupApp } from '@/utils/setup';
 import { NotificationService } from '@/services/notifications';
+import { AgeConfirmationModal } from '@/components/AgeConfirmationModal';
+import { LoadingScreen } from '@/components/LoadingScreen';
+import { MedicalDisclaimerModal } from '@/components/MedicalDisclaimerModal';
+import { useComplianceStore } from '@/state/compliance.store';
 
 // Initialize app setup
 setupApp();
 
 function App() {
+  const { hasConfirmedAge, hasAcceptedDisclaimer } = useComplianceStore();
+
   useEffect(() => {
     // Initialize notification service
     const initializeNotifications = async () => {
@@ -66,14 +72,17 @@ function App() {
         <AnalyticsProvider>
           <ThemeProvider>
             <AuthProvider>
-              <AIProvider>
-                <PurchasesProvider>
-                  <NavigationContainer>
-                    <StatusBar style="auto" />
+              <PurchasesProvider>
+                <NavigationContainer>
+                  <StatusBar style="auto" />
+                  {hasConfirmedAge && hasAcceptedDisclaimer ? (
                     <RootStack />
-                  </NavigationContainer>
-                </PurchasesProvider>
-              </AIProvider>
+                  ) : (
+                    <LoadingScreen message="Confirm age & medical disclaimer" />
+                  )}
+                  <ComplianceGate />
+                </NavigationContainer>
+              </PurchasesProvider>
             </AuthProvider>
           </ThemeProvider>
         </AnalyticsProvider>
@@ -81,6 +90,61 @@ function App() {
     </GestureHandlerRootView>
   );
 }
+
+const ComplianceGate: React.FC = () => {
+  const {
+    hasConfirmedAge,
+    hasAcceptedDisclaimer,
+    confirmAge,
+    acceptDisclaimer,
+  } = useComplianceStore();
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+
+  useEffect(() => {
+    if (hasConfirmedAge && !hasAcceptedDisclaimer) {
+      setShowDisclaimer(true);
+    }
+  }, [hasAcceptedDisclaimer, hasConfirmedAge]);
+
+  const handleAgeDecline = () => {
+    Alert.alert(
+      'Age requirement',
+      'You must be 18 years or older to use FIIT, so we unfortunately cannot continue.'
+    );
+  };
+
+  const handleDisclaimerDecline = () => {
+    Alert.alert(
+      'Disclaimer required',
+      'Please accept the medical disclaimer to continue using FIIT.'
+    );
+  };
+
+  return (
+    <>
+      <AgeConfirmationModal
+        visible={!hasConfirmedAge}
+        onConfirm={() => {
+          confirmAge();
+          if (!hasAcceptedDisclaimer) {
+            setShowDisclaimer(true);
+          }
+        }}
+        onDecline={handleAgeDecline}
+      />
+      <MedicalDisclaimerModal
+        visible={
+          showDisclaimer && hasConfirmedAge && !hasAcceptedDisclaimer
+        }
+        onAccept={() => {
+          acceptDisclaimer();
+          setShowDisclaimer(false);
+        }}
+        onDecline={handleDisclaimerDecline}
+      />
+    </>
+  );
+};
 
 // Register the main component
 AppRegistry.registerComponent('main', () => App);

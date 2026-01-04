@@ -997,3 +997,4 @@ This comprehensive refinement package provides:
 5. **Production-Ready Components**: All components follow accessibility guidelines and design system
 
 The app now has a clear value proposition, smooth onboarding flow, and intelligent guidance that will drive user engagement and success! 🚀
+# NOTE: Legacy nutrition-era document. Current product is the FIIT execution coach. See `README.md`.

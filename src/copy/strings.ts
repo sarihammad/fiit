@@ -1,0 +1,164 @@
+/**
+ * Central copy file for FIIT - Nutrition Execution Coach
+ * 
+ * RULES:
+ * - No "AI-powered", "engine", "workflow", "generate"
+ * - Short, confident, action-first
+ * - Outcome language only
+ * - Emotionally resonant
+ */
+
+export const Copy = {
+  // ===== START SCREEN =====
+  start: {
+    headline: "What do you want to change about your nutrition?",
+    subheadline: "Type it messy. We'll make it actionable.",
+    placeholder: "e.g., Lose 15 lbs without starving",
+    examples: [
+      "Lose 15 lbs without starving",
+      "Hit 140g protein daily",
+      "Stop ordering food 5x/week",
+      "Meal prep twice a week",
+      "Reduce sugar cravings at night",
+    ],
+    continueButton: "Continue",
+    coachingHeader: "Let's make this realistic.",
+    coachingSubheader: "One question at a time.",
+    answerPlaceholder: "Type your answer",
+    answerNeeded: "Answer needed",
+    answerNeededMessage: "Give a quick answer to keep moving.",
+  },
+
+  // ===== COACHING QUESTIONS =====
+  questions: {
+    targetOutcome: "What does success look like in 7 days?",
+    constraints: "Any dietary constraints or foods you avoid?",
+    schedule: "How many days can you cook / meal prep this week?",
+    resources: "What's your budget + access to a kitchen?",
+    habits: "What usually causes you to slip? (cravings, time, stress, social, boredom)",
+    timeAvailable: "How much time can you spend daily? (5/15/30 min)",
+    confidence: "How confident are you right now (1–10)? What would raise it by 1?",
+  },
+
+  // ===== PLAN SCREEN =====
+  plan: {
+    headline: "Your 7-Day Plan",
+    subheadline: "Once you commit, it locks — so you stop restarting and start getting consistent.",
+    previewTitle: "Preview your plan",
+    generateButton: "Build my 7-day plan",
+    generating: "Building...",
+    commitButton: "Commit & Lock",
+    commitConfirmTitle: "Commit and lock this week?",
+    commitConfirmMessage: "After you commit, this plan locks. You'll need to reset to change it.",
+    commitConfirmButton: "Yes, lock it",
+    commitCancelButton: "Not yet",
+    lockedTitle: "Your locked plan",
+    resetButton: "Reset Week",
+    resetConfirmTitle: "Reset week?",
+    resetConfirmMessage: "Resetting clears your plan so you can build a new one.",
+    resetConfirmButton: "Reset",
+    resetCancelButton: "Cancel",
+    resetLimitReached: "Reset limit reached",
+    resetLimitMessage: "You've used your monthly reset. Upgrade for unlimited resets.",
+    upgradeButton: "Upgrade",
+    notNowButton: "Not now",
+    noPreview: "Build your plan to see the next 7 days.",
+    rulesTitle: "Rules of the week",
+    whyWorksTitle: "Why this plan works",
+  },
+
+  // ===== TODAY SCREEN =====
+  today: {
+    headline: "Today.",
+    subheadline: "Just do the next obvious thing.",
+    noTasks: "No actions scheduled for today. You're free to reset or plan ahead.",
+    startButton: "Start",
+    notTodayButton: "Not today",
+    laterToday: "Later today",
+    deferReasons: {
+      title: "Why not?",
+      tooHard: "Too hard",
+      tooLong: "Too long",
+      notImportant: "Not important",
+      dontKnowHow: "Don't know how",
+    },
+    makeItEasier: "Make it 5 minutes",
+    makeItEasierTitle: "Want a 5-minute version?",
+    makeItEasierSubtitle: "We'll make this feel doable right now.",
+    makeItEasierWorking: "Working...",
+    makeItEasierClose: "Close",
+    deferredStreakTitle: "You've pushed this {count} times. Want a 5-minute version?",
+    microStepLimitReached: "Daily limit reached",
+    microStepLimitMessage: "Upgrade for unlimited 'Make it 5 minutes'.",
+    focusTimer: {
+      title: "Focus",
+      start5: "5 min",
+      start10: "10 min",
+      start15: "15 min",
+      done: "Done?",
+      doneButton: "Done",
+      notYetButton: "Not yet",
+    },
+  },
+
+  // ===== SETTINGS =====
+  settings: {
+    title: "Settings",
+    resetWeek: "Reset Week",
+    remainingResets: "{count} reset{plural} remaining this month",
+    upgrade: "Upgrade",
+    disclaimer: "Medical Disclaimer",
+    privacy: "Privacy Policy",
+    terms: "Terms of Service",
+    dataExport: "Export Data",
+    dataDelete: "Delete All Data",
+  },
+
+  // ===== UPGRADE =====
+  upgrade: {
+    headline: "Get consistent faster",
+    subheadline: "Unlimited resets + unlimited 'Make it 5 minutes'.",
+    features: {
+      unlimitedResets: "Unlimited week resets",
+      unlimitedMicroSteps: "Unlimited 'Make it 5 minutes'",
+      weeklyReview: "Weekly execution review",
+    },
+  },
+
+  // ===== MEDICAL DISCLAIMER =====
+  disclaimer: {
+    title: "Important Medical Information",
+    subtitle: "Please read carefully before continuing",
+    notMedicalAdvice: "This is not medical advice. It's a coaching tool.",
+    consultProfessional: "Before starting any nutrition program, consult with a qualified healthcare provider.",
+    acknowledge: "I Understand & Accept",
+    decline: "I do not accept",
+  },
+
+  // ===== COMMON =====
+  common: {
+    loading: "Loading...",
+    error: "Something went wrong",
+    retry: "Try again",
+    cancel: "Cancel",
+    close: "Close",
+    back: "Back",
+    next: "Next",
+    save: "Save",
+    delete: "Delete",
+    confirm: "Confirm",
+  },
+} as const;
+
+// Helper to replace placeholders
+export function formatCopy(
+  template: string,
+  values: Record<string, string | number>
+): string {
+  let result = template;
+  for (const [key, value] of Object.entries(values)) {
+    result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value));
+  }
+  return result;
+}
+

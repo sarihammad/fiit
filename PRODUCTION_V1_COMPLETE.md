@@ -172,3 +172,4 @@ The app is now ready for:
 The FIIT app is now a **production-ready, paid v1** with enterprise-grade security, comprehensive testing, and a polished user experience that will drive user engagement and revenue growth!
 
 **Congratulations! You now have a production-ready nutrition app that's ready to compete with the best in the market! 🎉**
+# NOTE: Legacy nutrition-era document. Current product is the FIIT execution coach. See `README.md`.

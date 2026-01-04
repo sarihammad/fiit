@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PaywallService, SubscriptionTier, PurchaseResult, RescueOfferState } from '@/services/paywall';
+import { PaywallService, SubscriptionTier, RescueOfferState } from '@/services/paywall';
 import { Offering, CustomerInfo } from '@/types/api';
 
 // Paywall state interface
@@ -10,6 +10,7 @@ export interface PaywallState {
   offerings: Offering[];
   customerInfo: CustomerInfo | null;
   currentTier: SubscriptionTier;
+  isPro: boolean;
   isLoading: boolean;
   error: string | null;
   rescueOfferState: RescueOfferState;
@@ -20,8 +21,11 @@ export interface PaywallState {
   refresh: () => Promise<void>;
   purchasePackage: (packageIdentifier: string) => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
+  restore: () => Promise<boolean>;
   checkRescueOffer: () => Promise<void>;
   setRescueOfferShown: () => Promise<void>;
+  setCustomerInfo: (customerInfo: CustomerInfo | null) => void;
+  canAccessFeature: (feature: string) => boolean;
   clearError: () => void;
   reset: () => void;
 }
@@ -34,9 +38,13 @@ export const usePaywallStore = create<PaywallState>()(
       offerings: [],
       customerInfo: null,
       currentTier: SubscriptionTier.FREE,
+      isPro: false,
       isLoading: false,
       error: null,
       rescueOfferState: { canShowRescue: true },
+
+      canAccessFeature: (feature: string): boolean =>
+        PaywallService.canAccessFeature(feature, get().currentTier),
 
       // Initialize RevenueCat
       initialize: async (): Promise<void> => {
@@ -77,19 +85,13 @@ export const usePaywallStore = create<PaywallState>()(
           ]);
 
           // Determine current tier based on entitlements
-          let currentTier = SubscriptionTier.FREE;
-          if (customerInfo?.entitlements) {
-            if (customerInfo.entitlements.premium?.isActive) {
-              currentTier = SubscriptionTier.PREMIUM;
-            } else if (customerInfo.entitlements.pro?.isActive) {
-              currentTier = SubscriptionTier.PRO;
-            }
-          }
+          const currentTier = deriveTier(customerInfo);
 
           set({
             offerings,
             customerInfo,
             currentTier,
+            isPro: isProTier(currentTier),
             isLoading: false,
           });
         } catch (error) {
@@ -111,19 +113,12 @@ export const usePaywallStore = create<PaywallState>()(
           if (result.success && result.data) {
             // Update customer info and tier
             const customerInfo = result.data.customerInfo;
-            let currentTier = SubscriptionTier.FREE;
-            
-            if (customerInfo.entitlements) {
-              if (customerInfo.entitlements.premium?.isActive) {
-                currentTier = SubscriptionTier.PREMIUM;
-              } else if (customerInfo.entitlements.pro?.isActive) {
-                currentTier = SubscriptionTier.PRO;
-              }
-            }
+            const currentTier = deriveTier(customerInfo);
 
             set({
               customerInfo,
               currentTier,
+              isPro: isProTier(currentTier),
               isLoading: false,
             });
 
@@ -155,19 +150,12 @@ export const usePaywallStore = create<PaywallState>()(
           if (result.success && result.data) {
             // Update customer info and tier
             const customerInfo = result.data.customerInfo;
-            let currentTier = SubscriptionTier.FREE;
-            
-            if (customerInfo.entitlements) {
-              if (customerInfo.entitlements.premium?.isActive) {
-                currentTier = SubscriptionTier.PREMIUM;
-              } else if (customerInfo.entitlements.pro?.isActive) {
-                currentTier = SubscriptionTier.PRO;
-              }
-            }
+            const currentTier = deriveTier(customerInfo);
 
             set({
               customerInfo,
               currentTier,
+              isPro: isProTier(currentTier),
               isLoading: false,
             });
 
@@ -189,6 +177,8 @@ export const usePaywallStore = create<PaywallState>()(
         }
       },
 
+      restore: async (): Promise<boolean> => get().restorePurchases(),
+
       // Check rescue offer state
       checkRescueOffer: async (): Promise<void> => {
         try {
@@ -200,13 +190,24 @@ export const usePaywallStore = create<PaywallState>()(
       },
 
       // Set rescue offer as shown
-      setRescueOfferShown: async (): Promise<void> => {
+      setRescueOfferShown: async (): Promise<boolean> => {
         try {
-          await PaywallService.setRescueOfferShown();
+          const success = await PaywallService.setRescueOfferShown();
           await get().checkRescueOffer();
+          return success;
         } catch (error) {
           console.error('Failed to set rescue offer shown:', error);
+          return false;
         }
+      },
+
+      setCustomerInfo: (customerInfo: CustomerInfo | null): void => {
+        const currentTier = deriveTier(customerInfo);
+        set({
+          customerInfo,
+          currentTier,
+          isPro: isProTier(currentTier),
+        });
       },
 
       // Clear error
@@ -220,6 +221,7 @@ export const usePaywallStore = create<PaywallState>()(
           offerings: [],
           customerInfo: null,
           currentTier: SubscriptionTier.FREE,
+          isPro: false,
           isLoading: false,
           error: null,
           rescueOfferState: { canShowRescue: true },
@@ -261,7 +263,7 @@ export const usePaywallActions = () => usePaywallStore((state) => ({
 
 // Utility selectors
 export const useIsPro = () => usePaywallStore((state) => 
-  state.currentTier === SubscriptionTier.PRO || state.currentTier === SubscriptionTier.PREMIUM
+  state.isPro
 );
 
 export const useIsPremium = () => usePaywallStore((state) => 
@@ -269,5 +271,24 @@ export const useIsPremium = () => usePaywallStore((state) =>
 );
 
 export const useCanAccessFeature = (feature: string) => usePaywallStore((state) => 
-  PaywallService.canAccessFeature(feature, state.currentTier)
+  state.canAccessFeature(feature)
 );
+
+const isProTier = (tier: SubscriptionTier): boolean =>
+  tier === SubscriptionTier.PRO || tier === SubscriptionTier.PREMIUM;
+
+const deriveTier = (customerInfo: CustomerInfo | null): SubscriptionTier => {
+  if (!customerInfo?.entitlements) {
+    return SubscriptionTier.FREE;
+  }
+
+  if (customerInfo.entitlements.premium?.isActive) {
+    return SubscriptionTier.PREMIUM;
+  }
+
+  if (customerInfo.entitlements.pro?.isActive) {
+    return SubscriptionTier.PRO;
+  }
+
+  return SubscriptionTier.FREE;
+};

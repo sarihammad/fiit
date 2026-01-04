@@ -274,3 +274,4 @@ All implemented features:
 **Next Action:** Test the flows, then continue with Features 4-5 (Planner + Paywall)
 
 _Last Updated: October 7, 2025_
+# NOTE: Legacy nutrition-era document. Current product is the FIIT execution coach. See `README.md`.

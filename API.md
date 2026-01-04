@@ -14,10 +14,14 @@ This document provides comprehensive API documentation for the FIIT backend serv
 
 ## Authentication
 
-All API endpoints require authentication using an API key passed in the `X-API-Key` header.
+All API endpoints require authentication using an API key. Either header format is accepted:
 
 ```http
 X-API-Key: your-api-key-here
+```
+
+```http
+Authorization: Bearer your-api-key-here
 ```
 
 ### Getting an API Key
@@ -70,10 +74,15 @@ Check if the service is ready to handle requests (includes dependency checks).
 
 Classify food from an uploaded image.
 
-**Headers:**
+**Headers (either auth header is accepted):**
 
 ```http
 X-API-Key: your-api-key-here
+Content-Type: multipart/form-data
+```
+
+```http
+Authorization: Bearer your-api-key-here
 Content-Type: multipart/form-data
 ```
 
@@ -87,62 +96,75 @@ Content-Type: multipart/form-data
 
 ```json
 {
-  "predictions": [
-    {
-      "label": "chicken_wings",
-      "confidence": 0.95,
-      "nutrition": {
-        "fdcId": 12345,
-        "description": "Chicken, wing, raw",
-        "kcal": 203,
-        "protein": 18.3,
-        "carbs": 0.0,
-        "fat": 14.2
-      }
-    },
-    {
-      "label": "chicken_breast",
-      "confidence": 0.03,
-      "nutrition": {
-        "fdcId": 12346,
-        "description": "Chicken, breast, raw",
-        "kcal": 165,
-        "protein": 31.0,
-        "carbs": 0.0,
-        "fat": 3.6
-      }
-    },
-    {
-      "label": "chicken_thigh",
-      "confidence": 0.02,
-      "nutrition": {
-        "fdcId": 12347,
-        "description": "Chicken, thigh, raw",
-        "kcal": 209,
-        "protein": 18.3,
-        "carbs": 0.0,
-        "fat": 14.7
-      }
-    }
+  "topk": [
+    { "label": "chicken wings", "prob": 0.95 },
+    { "label": "chicken breast", "prob": 0.03 },
+    { "label": "chicken thigh", "prob": 0.02 }
   ],
   "decision": "auto_accept",
-  "processingTime": 1.2,
-  "modelVersion": "1.0.0"
+  "nutrition": {
+    "fdcId": 12345,
+    "description": "Chicken, wing, raw",
+    "kcal": 203,
+    "protein": 18.3,
+    "carbs": 0.0,
+    "fat": 14.2
+  },
+  "timestamp": "2024-01-01T00:00:00Z"
 }
 ```
 
 **Response Fields:**
 
-- `predictions`: Array of top 3 food predictions
+- `topk`: Array of top predictions with probabilities
 - `decision`: Decision type (`auto_accept`, `confirm`, `fallback`)
-- `processingTime`: Processing time in seconds
-- `modelVersion`: Model version used
+- `nutrition`: Optional nutrition data for the top prediction
+- `timestamp`: Request completion time (ISO 8601)
 
 **Decision Logic:**
 
 - `auto_accept`: Top prediction confidence ≥ 0.8
 - `confirm`: Top prediction confidence 0.5-0.8
 - `fallback`: Top prediction confidence < 0.5
+
+### AI Proxy
+
+#### POST /ai/analyze
+
+Proxy AI requests so clients do not ship provider API keys.
+
+**Headers (either auth header is accepted):**
+
+```http
+X-API-Key: your-api-key-here
+Content-Type: application/json
+```
+
+```http
+Authorization: Bearer your-api-key-here
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+  "provider": "openai",
+  "model": "gpt-4",
+  "messages": [{ "role": "user", "content": "Hello" }],
+  "max_tokens": 1000,
+  "temperature": 0.7,
+  "response_format": { "type": "json_object" }
+}
+```
+
+**Response:**
+
+```json
+{
+  "content": "Model response content"
+}
+```
 
 ### Metrics
 
@@ -180,16 +202,17 @@ fdc_api_calls_total{status="error"} 5
 
 ```typescript
 interface FoodPrediction {
-  label: string; // Food label (e.g., "chicken_wings")
-  confidence: number; // Confidence score (0-1)
-  nutrition?: {
-    fdcId: number; // USDA FDC ID
-    description: string; // Food description
-    kcal: number; // Calories per 100g
-    protein: number; // Protein per 100g (g)
-    carbs: number; // Carbs per 100g (g)
-    fat: number; // Fat per 100g (g)
-  };
+  label: string; // Food label (e.g., "chicken wings")
+  prob: number; // Probability score (0-1)
+}
+
+interface NutritionInfo {
+  fdcId?: number; // USDA FDC ID
+  description?: string; // Food description
+  kcal?: number; // Calories per 100g
+  protein?: number; // Protein per 100g (g)
+  carbs?: number; // Carbs per 100g (g)
+  fat?: number; // Fat per 100g (g)
 }
 ```
 
@@ -197,10 +220,10 @@ interface FoodPrediction {
 
 ```typescript
 interface ClassificationResponse {
-  predictions: FoodPrediction[];
+  topk: FoodPrediction[];
   decision: 'auto_accept' | 'confirm' | 'fallback';
-  processingTime: number;
-  modelVersion?: string;
+  nutrition?: NutritionInfo | null;
+  timestamp: string;
 }
 ```
 
@@ -743,4 +766,3 @@ except Exception as e:
 ---
 
 For more information, refer to the [README.md](README.md) or contact support.
-

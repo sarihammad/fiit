@@ -18,7 +18,7 @@ Make sure your `.env` file has these keys (optional for testing):
 
 ```bash
 # Optional - will use mock data if missing
-EXPO_PUBLIC_OPENAI_API_KEY=your-key-here
+EXPO_PUBLIC_AI_PROVIDER=openai
 EXPO_PUBLIC_NUTRITIONIX_APP_ID=your-id-here
 EXPO_PUBLIC_NUTRITIONIX_API_KEY=your-key-here
 EXPO_PUBLIC_CALORIEMAMA_API_KEY=your-key-here

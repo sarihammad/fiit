@@ -19,6 +19,7 @@
     "jsx": "react-jsx",
     "lib": ["dom", "esnext"],
     "moduleResolution": "bundler",
+    "module": "es2020",
     "noEmit": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
@@ -27,7 +28,7 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true
+    "exactOptionalPropertyTypes": false
   },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]

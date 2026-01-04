@@ -1,7 +1,5 @@
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { Linking } from 'react-native';
 
 // Notification configuration
 Notifications.setNotificationHandler({
@@ -15,8 +13,9 @@ Notifications.setNotificationHandler({
 export class NotificationService {
   private static readonly NOTIFICATION_IDS = {
     MORNING_PLANNER: 'morning_planner',
-    LUNCH_REMINDER: 'lunch_reminder',
-    EVENING_FEEDBACK: 'evening_feedback',
+    MIDDAY_CHECKIN: 'midday_checkin',
+    EVENING_REVIEW: 'evening_review',
+    DAILY_REMINDER: 'daily_reminder',
   };
 
   /**
@@ -59,36 +58,52 @@ export class NotificationService {
       await this.scheduleNotification({
         identifier: this.NOTIFICATION_IDS.MORNING_PLANNER,
         title: 'Good morning! 🌅',
-        body: 'Plan your meals for today and start your day right',
+        body: 'Open Today Mode and pick your first win',
         hour: 7,
         minute: 30,
-        deepLink: 'fiit://planner',
+        deepLink: 'fiit://today',
       });
 
-      // Schedule lunch reminder (12:30 PM)
+      // Schedule midday check-in (12:30 PM)
       await this.scheduleNotification({
-        identifier: this.NOTIFICATION_IDS.LUNCH_REMINDER,
-        title: 'Lunch time! 🍽️',
-        body: 'Don\'t forget to log your lunch and stay on track',
+        identifier: this.NOTIFICATION_IDS.MIDDAY_CHECKIN,
+        title: 'Midday check-in ☀️',
+        body: 'One task done is momentum. What’s next?',
         hour: 12,
         minute: 30,
-        deepLink: 'fiit://camera',
+        deepLink: 'fiit://today',
       });
 
-      // Schedule evening feedback (8:00 PM)
+      // Schedule evening review (8:00 PM)
       await this.scheduleNotification({
-        identifier: this.NOTIFICATION_IDS.EVENING_FEEDBACK,
-        title: 'Evening check-in 🌙',
-        body: 'Review your progress and get tomorrow\'s tips',
+        identifier: this.NOTIFICATION_IDS.EVENING_REVIEW,
+        title: 'Evening review 🌙',
+        body: 'Close your loop and set tomorrow’s focus',
         hour: 20,
         minute: 0,
-        deepLink: 'fiit://feedback',
+        deepLink: 'fiit://today',
       });
 
       console.log('[Notifications] Daily reminders scheduled');
     } catch (error) {
       console.error('[Notifications] Failed to schedule reminders:', error);
     }
+  }
+
+  static async scheduleDailyReminder(hour = 9, minute = 0): Promise<void> {
+    await this.cancelAllNotifications();
+    await this.scheduleNotification({
+      identifier: this.NOTIFICATION_IDS.DAILY_REMINDER,
+      title: 'Daily check-in ✅',
+      body: 'Open Today Mode and do the next obvious thing.',
+      hour,
+      minute,
+      deepLink: 'fiit://today',
+    });
+  }
+
+  static async scheduleAllFIITReminders(): Promise<void> {
+    await this.scheduleDailyReminders();
   }
 
   /**
@@ -119,9 +134,9 @@ export class NotificationService {
           sound: true,
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
           hour,
           minute,
-          repeats: true,
         },
       });
     } catch (error) {
@@ -163,7 +178,7 @@ export class NotificationService {
   }: {
     title: string;
     body: string;
-    data?: any;
+    data?: Record<string, unknown>;
   }): Promise<void> {
     try {
       await Notifications.scheduleNotificationAsync({
@@ -178,6 +193,14 @@ export class NotificationService {
     } catch (error) {
       console.error('[Notifications] Failed to send immediate notification:', error);
     }
+  }
+
+  static async sendTestNotification(): Promise<void> {
+    await this.sendImmediateNotification({
+      title: 'FIIT Test Notification',
+      body: 'Your notifications are enabled.',
+      data: { deepLink: 'fiit://settings' },
+    });
   }
 
   /**
@@ -207,17 +230,9 @@ export class NotificationService {
         const path = deepLink.replace('fiit://', '');
         
         switch (path) {
-          case 'planner':
-            // Navigate to meal planner
-            console.log('[Notifications] Navigate to planner');
-            break;
-          case 'camera':
-            // Navigate to camera
-            console.log('[Notifications] Navigate to camera');
-            break;
-          case 'feedback':
-            // Navigate to feedback
-            console.log('[Notifications] Navigate to feedback');
+          case 'today':
+            // Navigate to Today Mode
+            console.log('[Notifications] Navigate to today');
             break;
           default:
             console.log(`[Notifications] Unknown deep link: ${path}`);
@@ -260,6 +275,11 @@ export class NotificationService {
     }
   }
 
+  static async areNotificationsEnabled(): Promise<boolean> {
+    const status = await this.getPermissionsStatus();
+    return status.granted;
+  }
+
   /**
    * Get scheduled notifications
    */
@@ -273,40 +293,13 @@ export class NotificationService {
   }
 
   /**
-   * Send meal logging reminder
-   */
-  static async sendMealReminder(mealType: 'breakfast' | 'lunch' | 'dinner'): Promise<void> {
-    const messages = {
-      breakfast: {
-        title: 'Breakfast time! 🥞',
-        body: 'Start your day with a nutritious breakfast',
-      },
-      lunch: {
-        title: 'Lunch time! 🍽️',
-        body: 'Don\'t forget to log your lunch',
-      },
-      dinner: {
-        title: 'Dinner time! 🍽️',
-        body: 'End your day with a healthy dinner',
-      },
-    };
-
-    const message = messages[mealType];
-    await this.sendImmediateNotification({
-      title: message.title,
-      body: message.body,
-      data: { deepLink: 'fiit://camera' },
-    });
-  }
-
-  /**
    * Send achievement notification
    */
   static async sendAchievementNotification(achievement: string): Promise<void> {
     await this.sendImmediateNotification({
       title: 'Achievement Unlocked! 🏆',
       body: achievement,
-      data: { deepLink: 'fiit://achievements' },
+      data: { deepLink: 'fiit://today' },
     });
   }
 
@@ -316,19 +309,9 @@ export class NotificationService {
   static async sendStreakReminder(streak: number): Promise<void> {
     await this.sendImmediateNotification({
       title: `${streak} Day Streak! 🔥`,
-      body: 'Keep it up! You\'re building a healthy habit.',
-      data: { deepLink: 'fiit://progress' },
+      body: 'Keep it up! You’re building execution momentum.',
+      data: { deepLink: 'fiit://today' },
     });
   }
 
-  /**
-   * Send weight logging reminder
-   */
-  static async sendWeightReminder(): Promise<void> {
-    await this.sendImmediateNotification({
-      title: 'Weight Check-in 📊',
-      body: 'Time to log your weight and track your progress',
-      data: { deepLink: 'fiit://weight' },
-    });
-  }
 }

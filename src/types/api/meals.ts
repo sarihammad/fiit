@@ -73,17 +73,26 @@ export const GetMealsResponseSchema = z.object({
 });
 
 // Vision API schemas
+export const VisionNutritionSchema = z.object({
+  fdcId: z.number().optional(),
+  description: z.string().optional(),
+  kcal: z.number().nullable().optional(),
+  protein: z.number().nullable().optional(),
+  carbs: z.number().nullable().optional(),
+  fat: z.number().nullable().optional(),
+});
+
 export const MealPredictionSchema = z.object({
   label: z.string(),
-  confidence: z.number().min(0).max(1),
-  nutrition: MacroNutrientsSchema.optional(),
-  fdcId: z.number().optional(),
+  prob: z.number().min(0).max(1),
 });
 
 export const MealPredictionResponseSchema = z.object({
-  predictions: z.array(MealPredictionSchema),
+  topk: z.array(MealPredictionSchema),
   decision: z.enum(['auto_accept', 'confirm', 'fallback']),
-  processingTime: z.number(),
+  nutrition: VisionNutritionSchema.nullable().optional(),
+  timestamp: z.string(),
+  processingTime: z.number().optional(),
   modelVersion: z.string().optional(),
 });
 

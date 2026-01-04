@@ -363,3 +363,4 @@ src/
 ---
 
 _Built with ❤️ following Clean Architecture, SOLID principles, and best practices._
+# NOTE: Legacy nutrition-era document. Current product is the FIIT execution coach. See `README.md`.

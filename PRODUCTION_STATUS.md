@@ -338,3 +338,4 @@ The core promise ("Lose 7 lbs in 30 days with AI meal plans") is fully deliverab
 ---
 
 **Ready to ship! 🚀**
+# NOTE: Legacy nutrition-era document. Current product is the FIIT execution coach. See `README.md`.

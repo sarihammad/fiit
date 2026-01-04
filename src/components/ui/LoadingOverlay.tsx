@@ -1,11 +1,18 @@
 import React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  ActivityIndicator,
+  StyleSheet,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
 import { useTheme } from '@/providers/ThemeProvider';
 
 interface LoadingOverlayProps {
   message?: string;
   visible: boolean;
-  style?: any;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({

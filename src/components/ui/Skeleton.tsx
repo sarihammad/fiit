@@ -1,23 +1,20 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, View, ViewStyle } from 'react-native';
-import { useTheme } from '@/providers/ThemeProvider';
+import React, { useEffect, useRef } from "react";
+import { StyleSheet, Animated, StyleProp, ViewStyle } from "react-native";
+import { DesignSystem } from "@/design-system";
 
 interface SkeletonProps {
   width?: number | string;
-  height?: number | string;
+  height?: number;
   borderRadius?: number;
-  style?: ViewStyle;
-  children?: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const Skeleton: React.FC<SkeletonProps> = ({
-  width = '100%',
+  width = "100%",
   height = 20,
-  borderRadius = 4,
+  borderRadius = DesignSystem.borderRadius.md,
   style,
-  children,
 }) => {
-  const { theme } = useTheme();
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -33,37 +30,27 @@ export const Skeleton: React.FC<SkeletonProps> = ({
           duration: 1000,
           useNativeDriver: false,
         }),
-      ])
+      ]),
     );
     animation.start();
 
     return () => animation.stop();
   }, [animatedValue]);
 
-  const backgroundColor = animatedValue.interpolate({
+  const opacity = animatedValue.interpolate({
     inputRange: [0, 1],
-    outputRange: [
-      theme.colors.background.secondary,
-      theme.colors.background.tertiary,
-    ],
+    outputRange: [0.3, 0.7],
   });
-
-  if (children) {
-    return (
-      <Animated.View style={[{ backgroundColor }, style]}>
-        {children}
-      </Animated.View>
-    );
-  }
 
   return (
     <Animated.View
       style={[
+        styles.skeleton,
         {
           width,
           height,
           borderRadius,
-          backgroundColor,
+          opacity,
         },
         style,
       ]}
@@ -71,54 +58,10 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   );
 };
 
-// Common skeleton patterns
-export const MealCardSkeleton: React.FC = () => {
-  const { theme } = useTheme();
-  
-  return (
-    <View
-      style={{
-        backgroundColor: theme.colors.background.primary,
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: theme.colors.border.primary,
-      }}
-    >
-      <Skeleton width="60%" height={20} style={{ marginBottom: 8 }} />
-      <Skeleton width="40%" height={16} style={{ marginBottom: 12 }} />
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Skeleton width="25%" height={14} />
-        <Skeleton width="25%" height={14} />
-        <Skeleton width="25%" height={14} />
-      </View>
-    </View>
-  );
-};
+const styles = StyleSheet.create({
+  skeleton: {
+    backgroundColor: DesignSystem.colors.neutral[200],
+  },
+});
 
-export const PaywallSkeleton: React.FC = () => {
-  const { theme } = useTheme();
-  
-  return (
-    <View
-      style={{
-        backgroundColor: theme.colors.background.primary,
-        borderRadius: 16,
-        padding: 24,
-        margin: 16,
-        borderWidth: 1,
-        borderColor: theme.colors.border.primary,
-      }}
-    >
-      <Skeleton width="80%" height={32} style={{ marginBottom: 16 }} />
-      <Skeleton width="100%" height={20} style={{ marginBottom: 8 }} />
-      <Skeleton width="90%" height={20} style={{ marginBottom: 8 }} />
-      <Skeleton width="85%" height={20} style={{ marginBottom: 24 }} />
-      
-      <Skeleton width="100%" height={60} style={{ marginBottom: 16 }} />
-      <Skeleton width="100%" height={50} style={{ marginBottom: 12 }} />
-      <Skeleton width="100%" height={50} />
-    </View>
-  );
-};
+export default Skeleton;

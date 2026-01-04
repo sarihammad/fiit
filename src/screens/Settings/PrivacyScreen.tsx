@@ -90,10 +90,9 @@ export const PrivacyScreen: React.FC = () => {
           }}
         >
           We collect information you provide directly to us, including:
-          {'\n\n'}• Personal information (age, sex, height, weight goals)
-          {'\n'}• Meal logs and photos you upload
-          {'\n'}• Weight tracking data
-          {'\n'}• Diet preferences and allergies
+          {'\n\n'}• Personal information (email, time zone, preferences)
+          {'\n'}• Goals, plan answers, and weekly plans you create
+          {'\n'}• Task completion and deferral activity
           {'\n'}• Usage data and analytics
         </Text>
 
@@ -117,10 +116,9 @@ export const PrivacyScreen: React.FC = () => {
           }}
         >
           We use your information to:
-          {'\n\n'}• Provide personalized meal plans and nutrition coaching
-          {'\n'}• Analyze food photos for calorie tracking
-          {'\n'}• Generate AI-powered feedback and recommendations
-          {'\n'}• Track your progress toward weight goals
+          {'\n\n'}• Generate your weekly execution plan
+          {'\n'}• Provide coaching prompts and micro-steps
+          {'\n'}• Track your progress toward goals
           {'\n'}• Send you notifications and reminders
           {'\n'}• Improve our services and app features
         </Text>
@@ -169,8 +167,7 @@ export const PrivacyScreen: React.FC = () => {
           }}
         >
           We use third-party services for:
-          {'\n\n'}• OpenAI for AI meal planning and feedback
-          {'\n'}• Nutritionix for food database and recognition
+          {'\n\n'}• AI providers for coaching prompts
           {'\n'}• RevenueCat for subscription management
           {'\n'}• Analytics providers for app improvement
           {'\n\n'}
@@ -201,7 +198,7 @@ export const PrivacyScreen: React.FC = () => {
           {'\n\n'}• Access your personal data
           {'\n'}• Delete your data at any time
           {'\n'}• Opt out of notifications
-          {'\n'}• Export your meal and weight data
+          {'\n'}• Export your plans and activity data
         </Text>
 
         <Text

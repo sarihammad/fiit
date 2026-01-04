@@ -208,3 +208,4 @@
 ---
 
 _Next: Device testing → Beta testing → App Store submission_
+# NOTE: Legacy nutrition-era document. Current product is the FIIT execution coach. See `README.md`.

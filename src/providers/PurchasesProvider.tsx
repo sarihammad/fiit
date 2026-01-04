@@ -2,7 +2,9 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { usePaywallStore } from '@/state/paywall.store';
+import { PaywallService } from '@/services/paywall';
 import { useAuthStore } from '@/state/auth.store';
+import { getEnv } from '@/utils/env';
 
 // Try to import Purchases, but handle the case where it's not available
 let Purchases: any = null;
@@ -50,15 +52,19 @@ export const PurchasesProvider: React.FC<{ children: React.ReactNode }> = ({
 
         // Get API keys from app config
         const iosApiKey =
-          Constants.expoConfig?.extra?.RC_IOS_API_KEY ||
-          'appl_EZZhGHPzidlBvHAUvXqlhLTqgCP';
+          getEnv('RC_IOS_API_KEY') ||
+          Constants.expoConfig?.extra?.RC_IOS_API_KEY;
         const androidApiKey =
-          Constants.expoConfig?.extra?.RC_ANDROID_API_KEY ||
-          'goog_eGehbjajtUQWCTeStonOlzCOuVD';
+          getEnv('RC_ANDROID_API_KEY') ||
+          Constants.expoConfig?.extra?.RC_ANDROID_API_KEY;
 
         if (!iosApiKey || !androidApiKey) {
-          console.log('RevenueCat API keys not configured, using mock mode');
-          setIsConfigured(true);
+          const message =
+            'RevenueCat API keys missing: please configure RC_IOS_API_KEY and RC_ANDROID_API_KEY.';
+          console.warn(message);
+          setError(message);
+          setIsConfigured(false);
+          setIsLoading(false);
           return;
         }
 
@@ -72,12 +78,12 @@ export const PurchasesProvider: React.FC<{ children: React.ReactNode }> = ({
 
         // Set up customer info update listener
         Purchases.addCustomerInfoUpdateListener((customerInfo: any) => {
-          setCustomerInfo(customerInfo);
+          setCustomerInfo(PaywallService.normalizeCustomerInfo(customerInfo));
         });
 
         // Get initial customer info
         const customerInfo = await Purchases.getCustomerInfo();
-        setCustomerInfo(customerInfo);
+        setCustomerInfo(PaywallService.normalizeCustomerInfo(customerInfo));
 
         // Refresh paywall store to ensure correct tier
         await refresh();

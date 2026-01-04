@@ -193,3 +193,4 @@ The FIIT app is now a **production-ready, paid v1** with enterprise-grade securi
 - [x] Docs updated; EAS preview/prod ready
 
 **STATUS: PRODUCTION READY ✅**
+# NOTE: Legacy nutrition-era document. Current product is the FIIT execution coach. See `README.md`.

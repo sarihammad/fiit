@@ -1,432 +1,364 @@
-import { http } from './http';
+// Analytics service for tracking user behavior and funnel events
+export interface AnalyticsEvent {
+  name: string;
+  properties?: Record<string, string | number | boolean | null | undefined>;
+  timestamp?: string;
+}
 
-// Analytics event types
-export const Events = {
-  // Onboarding events
-  OnboardingStep: 'onboarding_step',
-  OnboardingComplete: 'onboarding_complete',
-  
-  // Paywall events
-  PaywallViewed: 'paywall_viewed',
-  PaywallDismissed: 'paywall_dismissed',
-  
-  // Purchase events
-  PurchaseInitiated: 'purchase_initiated',
-  PurchaseCompleted: 'purchase_completed',
-  PurchaseFailed: 'purchase_failed',
-  PurchaseRestored: 'purchase_restored',
-  
-  // Meal logging events
-  MealLogStarted: 'meal_log_started',
-  MealLogCompleted: 'meal_log_completed',
-  MealLogFailed: 'meal_log_failed',
-  PhotoAnalyzed: 'photo_analyzed',
-  
-  // Feedback events
-  FeedbackViewed: 'feedback_viewed',
-  FeedbackGenerated: 'feedback_generated',
-  
-  // Notification events
-  NotificationReceived: 'notification_received',
-  NotificationOpened: 'notification_opened',
-  NotificationDismissed: 'notification_dismissed',
-  
-  // App lifecycle events
-  AppOpened: 'app_opened',
-  AppBackgrounded: 'app_backgrounded',
-  AppForegrounded: 'app_foregrounded',
-  
-  // Feature usage events
-  FeatureUsed: 'feature_used',
-  ScreenViewed: 'screen_viewed',
-  
-  // Error events
-  ErrorOccurred: 'error_occurred',
-  CrashOccurred: 'crash_occurred',
+export interface FunnelEvent {
+  step: string;
+  userId?: string;
+  sessionId?: string;
+  properties?: Record<string, string | number | boolean | null | undefined>;
+}
+
+// Funnel events for tracking user journey
+export const FunnelEvents = {
+  // Execution coach funnel
+  GOAL_STARTED: "goal_started",
+  CLARIFICATION_ANSWERED: "clarification_answered",
+  CLARIFICATION_COMPLETED: "clarification_completed",
+  PLAN_PREVIEWED: "plan_previewed",
+  PLAN_COMMITTED: "plan_committed",
+  PLAN_RESET: "plan_reset",
+  TODAY_OPENED: "today_opened",
+  TASK_COMPLETED: "task_completed",
+  TASK_DEFERRED: "task_deferred",
+  MICROSTEP_REQUESTED: "microstep_requested",
+
+  // Authentication funnel
+  AUTH_METHOD_SELECTED: "auth_method_selected",
+  AUTH_SUCCESS: "auth_success",
+  AUTH_FAILED: "auth_failed",
+  GUEST_ACCOUNT_CREATED: "guest_account_created",
+
+  // Paywall funnel
+  PAYWALL_VIEWED: "paywall_viewed",
+  PAYWALL_PACKAGE_SELECTED: "paywall_package_selected",
+  PURCHASE_INITIATED: "purchase_initiated",
+  PURCHASE_COMPLETED: "purchase_completed",
+  PURCHASE_FAILED: "purchase_failed",
+  PURCHASE_RESTORED: "purchase_restored",
+
+  // Notification funnel
+  NOTIFICATION_RECEIVED: "notification_received",
+  NOTIFICATION_OPENED: "notification_opened",
+  NOTIFICATION_DISMISSED: "notification_dismissed",
+
+  // Error tracking
+  ERROR_OCCURRED: "error_occurred",
+  API_ERROR: "api_error",
+  NETWORK_ERROR: "network_error",
 } as const;
-
-// Analytics payload type
-export type AnalyticsPayload = Record<string, string | number | boolean | null | undefined>;
 
 // Analytics service class
 export class AnalyticsService {
-  private static enabled = true;
-  private static userId: string | null = null;
-  private static sessionId: string | null = null;
+  private static instance: AnalyticsService;
+  private isEnabled: boolean = true;
+  private sessionId: string;
+  private userId?: string;
+  private eventQueue: AnalyticsEvent[] = [];
+  private flushInterval: NodeJS.Timeout | null = null;
 
-  /**
-   * Initialize analytics service
-   */
-  static initialize(userId?: string): void {
-    this.userId = userId || null;
+  private constructor() {
     this.sessionId = this.generateSessionId();
-    
-    // Track app opened
-    this.track(Events.AppOpened, {
-      session_id: this.sessionId,
-      user_id: this.userId,
+    this.startFlushInterval();
+  }
+
+  public static getInstance(): AnalyticsService {
+    if (!AnalyticsService.instance) {
+      AnalyticsService.instance = new AnalyticsService();
+    }
+    return AnalyticsService.instance;
+  }
+
+  // Initialize analytics with user context
+  public initialize(userId?: string): void {
+    this.userId = userId;
+    this.track("app_initialized", {
+      userId: userId || "anonymous",
+      sessionId: this.sessionId,
       timestamp: new Date().toISOString(),
     });
   }
 
-  /**
-   * Set user ID for analytics
-   */
-  static setUserId(userId: string): void {
+  // Set user ID for tracking
+  public setUserId(userId: string): void {
     this.userId = userId;
+    this.track("user_identified", { userId });
   }
 
-  /**
-   * Enable or disable analytics
-   */
-  static setEnabled(enabled: boolean): void {
-    this.enabled = enabled;
+  // Enable/disable analytics
+  public setEnabled(enabled: boolean): void {
+    this.isEnabled = enabled;
   }
 
-  /**
-   * Track an analytics event
-   */
-  static track(event: string, properties: AnalyticsPayload = {}): void {
-    if (!this.enabled) {
-      return;
-    }
+  // Track a generic event
+  public track(eventName: string, properties?: Record<string, any>): void {
+    if (!this.isEnabled) return;
 
-    try {
-      const payload = {
-        event,
-        properties: {
-          ...properties,
-          user_id: this.userId,
-          session_id: this.sessionId,
-          timestamp: new Date().toISOString(),
-          platform: 'mobile',
-          app_version: '1.0.0', // This should come from app config
-        },
-      };
+    const event: AnalyticsEvent = {
+      name: eventName,
+      properties: {
+        ...properties,
+        userId: this.userId,
+        sessionId: this.sessionId,
+        timestamp: new Date().toISOString(),
+      },
+    };
 
-      // Log to console in development
-      if (__DEV__) {
-        console.log('[Analytics]', event, properties);
-      }
-
-      // Send to analytics service (replace with actual implementation)
-      this.sendToAnalytics(payload);
-    } catch (error) {
-      console.error('[Analytics] Failed to track event:', error);
-    }
+    this.eventQueue.push(event);
+    this.logEvent(event);
   }
 
-  /**
-   * Track onboarding step completion
-   */
-  static trackOnboardingStep(
+  // Track funnel events
+  public trackFunnel(
+    event: keyof typeof FunnelEvents,
+    properties?: Record<string, any>,
+  ): void {
+    this.track(FunnelEvents[event], {
+      ...properties,
+      funnelStep: event,
+    });
+  }
+
+  // Track onboarding events
+  public trackOnboardingStep(
     step: string,
-    completed: boolean,
-    timeSpent?: number
+    stepNumber: number,
+    totalSteps: number,
   ): void {
-    this.track(Events.OnboardingStep, {
+    this.trackFunnel("CLARIFICATION_ANSWERED", {
       step,
-      completed,
-      time_spent: timeSpent,
+      stepNumber,
+      totalSteps,
+      progress: (stepNumber / totalSteps) * 100,
     });
   }
 
-  /**
-   * Track onboarding completion
-   */
-  static trackOnboardingComplete(timeSpent: number): void {
-    this.track(Events.OnboardingComplete, {
-      time_spent: timeSpent,
-    });
-  }
-
-  /**
-   * Track paywall view
-   */
-  static trackPaywallView(source: string, tier?: string): void {
-    this.track(Events.PaywallViewed, {
+  // Track paywall events
+  public trackPaywallView(source: string): void {
+    this.trackFunnel("PAYWALL_VIEWED", {
       source,
-      tier,
+      timestamp: new Date().toISOString(),
     });
   }
 
-  /**
-   * Track paywall dismissal
-   */
-  static trackPaywallDismissed(source: string, reason?: string): void {
-    this.track(Events.PaywallDismissed, {
-      source,
-      reason,
-    });
-  }
-
-  /**
-   * Track purchase initiation
-   */
-  static trackPurchaseInitiated(
-    productId: string,
-    price: number,
-    currency: string
-  ): void {
-    this.track(Events.PurchaseInitiated, {
-      product_id: productId,
-      price,
-      currency,
-    });
-  }
-
-  /**
-   * Track purchase completion
-   */
-  static trackPurchaseCompleted(
-    productId: string,
+  public trackPurchase(
+    packageId: string,
     price: number,
     currency: string,
-    revenue: number
   ): void {
-    this.track(Events.PurchaseCompleted, {
-      product_id: productId,
+    this.trackFunnel("PURCHASE_COMPLETED", {
+      packageId,
       price,
       currency,
-      revenue,
+      revenue: price,
     });
   }
 
-  /**
-   * Track purchase failure
-   */
-  static trackPurchaseFailed(
-    productId: string,
-    error: string,
-    price?: number
-  ): void {
-    this.track(Events.PurchaseFailed, {
-      product_id: productId,
-      error,
-      price,
+  // Track execution coach events
+  public trackTaskCompleted(taskId: string): void {
+    this.trackFunnel("TASK_COMPLETED", {
+      taskId,
+      timestamp: new Date().toISOString(),
     });
   }
 
-  /**
-   * Track purchase restoration
-   */
-  static trackPurchaseRestored(productId: string): void {
-    this.track(Events.PurchaseRestored, {
-      product_id: productId,
+  public trackTaskDeferred(taskId: string): void {
+    this.trackFunnel("TASK_DEFERRED", {
+      taskId,
+      timestamp: new Date().toISOString(),
     });
   }
 
-  /**
-   * Track meal logging start
-   */
-  static trackMealLogStarted(method: 'camera' | 'search' | 'manual'): void {
-    this.track(Events.MealLogStarted, {
-      method,
+  public trackMicroStepRequested(taskId?: string): void {
+    this.trackFunnel("MICROSTEP_REQUESTED", {
+      taskId,
+      timestamp: new Date().toISOString(),
     });
   }
 
-  /**
-   * Track meal logging completion
-   */
-  static trackMealLogCompleted(
-    method: 'camera' | 'search' | 'manual',
-    success: boolean,
-    processingTime?: number
-  ): void {
-    this.track(Events.MealLogCompleted, {
-      method,
-      success,
-      processing_time: processingTime,
+  // Track notification events
+  public trackNotificationReceived(notificationType: string): void {
+    this.trackFunnel("NOTIFICATION_RECEIVED", {
+      notificationType,
+      timestamp: new Date().toISOString(),
     });
   }
 
-  /**
-   * Track meal logging failure
-   */
-  static trackMealLogFailed(
-    method: 'camera' | 'search' | 'manual',
-    error: string
-  ): void {
-    this.track(Events.MealLogFailed, {
-      method,
-      error,
-    });
-  }
-
-  /**
-   * Track photo analysis
-   */
-  static trackPhotoAnalyzed(
-    success: boolean,
-    processingTime: number,
-    confidence?: number
-  ): void {
-    this.track(Events.PhotoAnalyzed, {
-      success,
-      processing_time: processingTime,
-      confidence,
-    });
-  }
-
-  /**
-   * Track feedback view
-   */
-  static trackFeedbackViewed(
-    feedbackType: 'daily' | 'weekly' | 'insights',
-    source: string
-  ): void {
-    this.track(Events.FeedbackViewed, {
-      feedback_type: feedbackType,
-      source,
-    });
-  }
-
-  /**
-   * Track feedback generation
-   */
-  static trackFeedbackGenerated(
-    feedbackType: 'daily' | 'weekly' | 'insights',
-    success: boolean,
-    processingTime?: number
-  ): void {
-    this.track(Events.FeedbackGenerated, {
-      feedback_type: feedbackType,
-      success,
-      processing_time: processingTime,
-    });
-  }
-
-  /**
-   * Track notification received
-   */
-  static trackNotificationReceived(notificationType: string): void {
-    this.track(Events.NotificationReceived, {
-      notification_type: notificationType,
-    });
-  }
-
-  /**
-   * Track notification opened
-   */
-  static trackNotificationOpened(
+  public trackNotificationOpened(
     notificationType: string,
-    action: string
+    action?: string,
   ): void {
-    this.track(Events.NotificationOpened, {
-      notification_type: notificationType,
+    this.trackFunnel("NOTIFICATION_OPENED", {
+      notificationType,
       action,
+      timestamp: new Date().toISOString(),
     });
   }
 
-  /**
-   * Track notification dismissed
-   */
-  static trackNotificationDismissed(notificationType: string): void {
-    this.track(Events.NotificationDismissed, {
-      notification_type: notificationType,
+  // Track error events
+  public trackError(error: Error, context?: string): void {
+    this.trackFunnel("ERROR_OCCURRED", {
+      errorMessage: error.message,
+      errorStack: error.stack,
+      context,
+      timestamp: new Date().toISOString(),
     });
   }
 
-  /**
-   * Track screen view
-   */
-  static trackScreenView(screenName: string, properties?: AnalyticsPayload): void {
-    this.track(Events.ScreenViewed, {
-      screen_name: screenName,
-      ...properties,
-    });
-  }
-
-  /**
-   * Track feature usage
-   */
-  static trackFeatureUsed(
-    featureName: string,
-    properties?: AnalyticsPayload
+  public trackApiError(
+    endpoint: string,
+    statusCode: number,
+    errorMessage: string,
   ): void {
-    this.track(Events.FeatureUsed, {
-      feature_name: featureName,
-      ...properties,
+    this.trackFunnel("API_ERROR", {
+      endpoint,
+      statusCode,
+      errorMessage,
+      timestamp: new Date().toISOString(),
     });
   }
 
-  /**
-   * Track error occurrence
-   */
-  static trackError(
-    error: string,
-    errorType: string,
-    properties?: AnalyticsPayload
+  // Track screen views
+  public trackScreenView(
+    screenName: string,
+    properties?: Record<string, any>,
   ): void {
-    this.track(Events.ErrorOccurred, {
-      error,
-      error_type: errorType,
+    this.track("screen_viewed", {
+      screenName,
       ...properties,
     });
   }
 
-  /**
-   * Track crash occurrence
-   */
-  static trackCrash(
-    error: string,
-    stackTrace?: string,
-    properties?: AnalyticsPayload
+  // Track user actions
+  public trackUserAction(
+    action: string,
+    target?: string,
+    properties?: Record<string, any>,
   ): void {
-    this.track(Events.CrashOccurred, {
-      error,
-      stack_trace: stackTrace,
+    this.track("user_action", {
+      action,
+      target,
       ...properties,
     });
   }
 
-  /**
-   * Track funnel events for conversion analysis
-   */
-  static trackFunnelEvent(
-    step: 'install' | 'onboarding_start' | 'onboarding_complete' | 'first_log' | 'trial_start' | 'purchase' | 'feedback_viewed',
-    properties?: AnalyticsPayload
-  ): void {
-    this.track('funnel_step', {
-      step,
-      ...properties,
+  // Track performance metrics
+  public trackPerformance(metric: string, value: number, unit: string): void {
+    this.track("performance_metric", {
+      metric,
+      value,
+      unit,
+      timestamp: new Date().toISOString(),
     });
   }
 
-  /**
-   * Send analytics data to service
-   */
-  private static async sendToAnalytics(payload: any): Promise<void> {
+  // Flush events to analytics provider
+  private async flushEvents(): Promise<void> {
+    if (this.eventQueue.length === 0) return;
+
+    const eventsToFlush = [...this.eventQueue];
+    this.eventQueue = [];
+
     try {
-      // This would integrate with your analytics service (Amplitude, Mixpanel, etc.)
-      // For now, we'll just log it
-      console.log('[Analytics] Sending:', payload);
-      
-      // Example integration with a backend analytics endpoint
-      // await http.post('/analytics/track', payload);
+      // Here you would send events to your analytics provider
+      // For now, we'll just log them
+      console.log("[Analytics] Flushing events:", eventsToFlush);
+
+      // Example: Send to analytics provider
+      // await this.sendToAnalyticsProvider(eventsToFlush);
     } catch (error) {
-      console.error('[Analytics] Failed to send to service:', error);
+      console.error("[Analytics] Failed to flush events:", error);
+      // Re-queue events on failure
+      this.eventQueue.unshift(...eventsToFlush);
     }
   }
 
-  /**
-   * Generate unique session ID
-   */
-  private static generateSessionId(): string {
+  // Start periodic flush interval
+  private startFlushInterval(): void {
+    this.flushInterval = setInterval(() => {
+      this.flushEvents();
+    }, 30000); // Flush every 30 seconds
+  }
+
+  // Stop flush interval
+  public stopFlushInterval(): void {
+    if (this.flushInterval) {
+      clearInterval(this.flushInterval);
+      this.flushInterval = null;
+    }
+  }
+
+  // Generate unique session ID
+  private generateSessionId(): string {
     return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  /**
-   * Get current session ID
-   */
-  static getSessionId(): string | null {
+  // Log event for debugging
+  private logEvent(event: AnalyticsEvent): void {
+    if (__DEV__) {
+      console.log("[Analytics] Event:", event);
+    }
+  }
+
+  // Get current session ID
+  public getSessionId(): string {
     return this.sessionId;
   }
 
-  /**
-   * Get current user ID
-   */
-  static getUserId(): string | null {
+  // Get current user ID
+  public getUserId(): string | undefined {
     return this.userId;
   }
+
+  // Get queued events count
+  public getQueuedEventsCount(): number {
+    return this.eventQueue.length;
+  }
 }
+
+// Export singleton instance
+export const analytics = AnalyticsService.getInstance();
+
+// Export convenience functions
+export const track = (eventName: string, properties?: Record<string, any>) => {
+  analytics.track(eventName, properties);
+};
+
+export const trackFunnel = (
+  event: keyof typeof FunnelEvents,
+  properties?: Record<string, any>,
+) => {
+  analytics.trackFunnel(event, properties);
+};
+
+export const trackScreenView = (
+  screenName: string,
+  properties?: Record<string, any>,
+) => {
+  analytics.trackScreenView(screenName, properties);
+};
+
+export const trackUserAction = (
+  action: string,
+  target?: string,
+  properties?: Record<string, any>,
+) => {
+  analytics.trackUserAction(action, target, properties);
+};
+
+export const trackError = (error: Error, context?: string) => {
+  analytics.trackError(error, context);
+};
+
+export const trackPerformance = (
+  metric: string,
+  value: number,
+  unit: string,
+) => {
+  analytics.trackPerformance(metric, value, unit);
+};
+
+export default analytics;

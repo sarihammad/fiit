@@ -279,3 +279,4 @@ if ('error' in result) {
 **Status:** 🟡 **IN PROGRESS** - Food photo analysis complete, 8 features remaining
 
 _Last Updated: October 7, 2025_
+# NOTE: Legacy nutrition-era document. Current product is the FIIT execution coach. See `README.md`.

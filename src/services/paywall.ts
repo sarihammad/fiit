@@ -4,17 +4,12 @@ import Purchases, {
   PurchasesOffering, 
   PurchasesPackage, 
   CustomerInfo,
-  PurchasesError,
   PURCHASES_ERROR_CODE 
 } from 'react-native-purchases';
-import { http } from './http';
 import { 
   Offering, 
   Package, 
   CustomerInfo as CustomerInfoDTO,
-  validateApiResponse,
-  OfferingSchema,
-  CustomerInfoSchema 
 } from '@/types/api';
 
 // Subscription tier enum
@@ -156,13 +151,12 @@ export class PaywallService {
     } catch (error) {
       console.error('[Paywall] Purchase failed:', error);
       
-      if (error instanceof PurchasesError) {
-        if (error.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
+      const errorCode = (error as { code?: string }).code;
+      if (errorCode === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
         return {
           success: false,
-            error: 'Purchase cancelled',
+          error: 'Purchase cancelled',
         };
-        }
       }
       
       return {
@@ -182,7 +176,7 @@ export class PaywallService {
       }
       
       const restoreResult = await Purchases.restorePurchases();
-      const customerInfo = this.mapCustomerInfoToDTO(restoreResult.customerInfo);
+      const customerInfo = this.mapCustomerInfoToDTO(restoreResult);
       
       return {
         success: true,
@@ -230,7 +224,6 @@ export class PaywallService {
 
       const parsed = JSON.parse(rescueData);
       const now = new Date();
-      const offeredAt = new Date(parsed.rescueOfferedAt);
       const expiry = new Date(parsed.rescueExpiry);
 
       if (now > expiry) {
@@ -249,10 +242,14 @@ export class PaywallService {
     }
   }
 
+  static async getRescueOfferState(): Promise<RescueOfferState> {
+    return this.checkRescueOffer();
+  }
+
   /**
    * Set rescue offer as shown
    */
-  static async setRescueOfferShown(): Promise<void> {
+  static async setRescueOfferShown(): Promise<boolean> {
     try {
       const now = new Date();
       const expiry = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
@@ -263,8 +260,10 @@ export class PaywallService {
       };
 
       await AsyncStorage.setItem(this.RESCUE_OFFER_KEY, JSON.stringify(rescueData));
+      return true;
     } catch (error) {
       console.error('[Paywall] Failed to set rescue offer:', error);
+      return false;
     }
   }
 
@@ -275,22 +274,22 @@ export class PaywallService {
     switch (tier) {
       case SubscriptionTier.FREE:
         return [
-          { title: 'Basic Meal Logging', description: 'Log up to 3 meals per day' },
-          { title: 'Basic Analytics', description: 'Simple progress tracking' },
+          { title: 'Daily execution', description: 'Today Mode and plan check-ins' },
+          { title: 'Basic accountability', description: 'Limited micro-step rewrites' },
         ];
       case SubscriptionTier.PRO:
         return [
-          { title: 'AI Meal Planning', description: 'Personalized meal plans' },
-          { title: 'Unlimited Logging', description: 'Log unlimited meals' },
-          { title: 'Advanced Analytics', description: 'Detailed insights' },
-          { title: 'Priority Support', description: '24/7 customer support' },
+          { title: 'Unlimited resets', description: 'Reset and recommit anytime' },
+          { title: 'Unlimited micro-steps', description: 'Get unstuck on demand' },
+          { title: 'Execution audits', description: 'Weekly reviews that keep you moving' },
+          { title: 'Priority support', description: 'Direct support when you stall' },
         ];
       case SubscriptionTier.PREMIUM:
         return [
           { title: 'Everything in Pro', description: 'All Pro features included' },
-          { title: 'Weekly AI Check-ins', description: 'Personalized weekly reviews' },
-          { title: 'Custom Goals', description: 'Set custom nutrition targets' },
-          { title: 'Export Data', description: 'Export your nutrition data' },
+          { title: 'Deep coaching', description: 'More detailed execution guidance' },
+          { title: 'Custom goal resets', description: 'Unlimited plan resets' },
+          { title: 'Execution summaries', description: 'Progress insights you can export' },
         ];
       default:
         return [];
@@ -302,11 +301,12 @@ export class PaywallService {
    */
   static canAccessFeature(feature: string, tier: SubscriptionTier): boolean {
     const featureAccess = {
-      meal_logging: [SubscriptionTier.FREE, SubscriptionTier.PRO, SubscriptionTier.PREMIUM],
-      ai_meal_planning: [SubscriptionTier.PRO, SubscriptionTier.PREMIUM],
-      advanced_analytics: [SubscriptionTier.PRO, SubscriptionTier.PREMIUM],
-      weekly_ai_checkins: [SubscriptionTier.PREMIUM],
-      custom_goals: [SubscriptionTier.PREMIUM],
+      daily_execution: [SubscriptionTier.FREE, SubscriptionTier.PRO, SubscriptionTier.PREMIUM],
+      plan_resets: [SubscriptionTier.PRO, SubscriptionTier.PREMIUM],
+      micro_steps: [SubscriptionTier.FREE, SubscriptionTier.PRO, SubscriptionTier.PREMIUM],
+      unlimited_micro_steps: [SubscriptionTier.PRO, SubscriptionTier.PREMIUM],
+      execution_audits: [SubscriptionTier.PRO, SubscriptionTier.PREMIUM],
+      deep_coaching: [SubscriptionTier.PREMIUM],
       export_data: [SubscriptionTier.PREMIUM],
     };
 
@@ -346,17 +346,26 @@ export class PaywallService {
    * Map RevenueCat customer info to DTO
    */
   private static mapCustomerInfoToDTO(customerInfo: CustomerInfo): CustomerInfoDTO {
+    const normalizeRecord = (
+      record?: Record<string, string | null | undefined>
+    ): Record<string, string> =>
+      Object.fromEntries(
+        Object.entries(record ?? {}).filter(
+          (entry): entry is [string, string] => typeof entry[1] === 'string'
+        )
+      );
+
     return {
       originalAppUserId: customerInfo.originalAppUserId,
       firstSeen: customerInfo.firstSeen,
       requestDate: customerInfo.requestDate,
-      allPurchaseDates: customerInfo.allPurchaseDates,
-      allExpirationDates: customerInfo.allExpirationDates,
+      allPurchaseDates: normalizeRecord(customerInfo.allPurchaseDates),
+      allExpirationDates: normalizeRecord(customerInfo.allExpirationDates),
       allPurchasedProductIdentifiers: customerInfo.allPurchasedProductIdentifiers,
       nonSubscriptionTransactions: customerInfo.nonSubscriptionTransactions,
       activeSubscriptions: customerInfo.activeSubscriptions,
       entitlements: Object.fromEntries(
-        Object.entries(customerInfo.entitlements.all).map(([key, value]) => [
+        Object.entries(customerInfo.entitlements?.all ?? {}).map(([key, value]) => [
           key,
           {
             identifier: value.identifier,
@@ -365,16 +374,20 @@ export class PaywallService {
             periodType: value.periodType,
             latestPurchaseDate: value.latestPurchaseDate,
             originalPurchaseDate: value.originalPurchaseDate,
-            expirationDate: value.expirationDate,
-            store: value.store,
+            expirationDate: value.expirationDate ?? undefined,
+            store: String(value.store),
             productIdentifier: value.productIdentifier,
             isSandbox: value.isSandbox,
-            unsubscribeDetectedAt: value.unsubscribeDetectedAt,
-            billingIssueDetectedAt: value.billingIssueDetectedAt,
+            unsubscribeDetectedAt: value.unsubscribeDetectedAt ?? undefined,
+            billingIssueDetectedAt: value.billingIssueDetectedAt ?? undefined,
           },
         ])
       ),
     };
+  }
+
+  static normalizeCustomerInfo(customerInfo: CustomerInfo): CustomerInfoDTO {
+    return this.mapCustomerInfoToDTO(customerInfo);
   }
 
   /**

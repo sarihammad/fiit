@@ -112,6 +112,18 @@ class TestAuthentication:
             # Should not be 401 (authentication error)
             assert response.status_code != 401
 
+    def test_classify_with_valid_x_api_key(self, mock_image, mock_model):
+        """Test that X-API-Key header is accepted"""
+        headers = {"X-API-Key": VALID_API_KEY}
+
+        with patch.object(config, "API_KEY", VALID_API_KEY):
+            response = client.post(
+                "/classify",
+                files={"file": ("test.jpg", mock_image.getvalue(), "image/jpeg")},
+                headers=headers
+            )
+            assert response.status_code != 401
+
 class TestImageValidation:
     """Test image validation and processing"""
     

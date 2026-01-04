@@ -39,6 +39,7 @@ This generates `food101_to_fdc_ids.csv` with resolved FDC IDs for better nutriti
 ## API Endpoints
 
 - `POST /classify` - Upload image for food classification
+- `POST /ai/analyze` - Proxy AI requests to provider APIs
 - `GET /health` - Health check endpoint
 
 ## Environment Variables
@@ -48,6 +49,8 @@ This generates `food101_to_fdc_ids.csv` with resolved FDC IDs for better nutriti
 - `T_MID` - Medium confidence threshold for confirmation (default: 0.50)
 - `T_LOW` - Low confidence threshold (default: 0.35)
 - `FDC_API_KEY` - USDA FoodData Central API key
+- `OPENAI_API_KEY` - OpenAI API key for AI proxy
+- `ANTHROPIC_API_KEY` - Anthropic API key for AI proxy
 - `FDC_MAP_PATH` - Path to FDC mapping CSV (default: food101_to_fdc_ids.csv)
 
 ## Cost Optimization

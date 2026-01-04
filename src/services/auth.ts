@@ -1,8 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
-import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { Platform } from 'react-native';
 import { http, AppError } from './http';
 import { 
@@ -10,7 +9,8 @@ import {
   AuthTokens, 
   User, 
   validateApiResponse, 
-  AuthResponseSchema 
+  AuthResponseSchema,
+  AuthTokensSchema 
 } from '@/types/api';
 
 // Complete auth session for web browser
@@ -132,7 +132,7 @@ export class AuthService {
       console.error('Google sign in error:', error);
       
       // Handle user cancellation
-      if ((error as any).code === GoogleSignin.statusCodes.SIGN_IN_CANCELLED) {
+      if ((error as any).code === statusCodes.SIGN_IN_CANCELLED) {
         return null;
       }
 
@@ -243,8 +243,11 @@ export class AuthService {
   static async signOut(): Promise<void> {
     try {
       // Sign out from Google if signed in
-      if (await GoogleSignin.isSignedIn()) {
-        await GoogleSignin.signOut();
+      if (typeof (GoogleSignin as any).isSignedIn === 'function') {
+        const signedIn = await (GoogleSignin as any).isSignedIn();
+        if (signedIn) {
+          await (GoogleSignin as any).signOut();
+        }
       }
 
       // Clear stored data
@@ -373,4 +376,3 @@ export class AuthService {
 }
 
 // Export types
-export type { AuthResult };
