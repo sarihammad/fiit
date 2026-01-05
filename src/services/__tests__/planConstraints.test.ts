@@ -1,24 +1,18 @@
-import { __testOnly } from '../aiCoach';
+import { AICoachEngine } from '../aiCoach';
 import { GoalClarificationAnswer } from '@/types/coach';
 
-// Access the internal enforcePlanConstraints via a test helper
-// Since it's not exported, we'll test via the public API that uses it
 describe('Plan Constraints (Fat Loss)', () => {
   it('enforces environment or grocery in first 48 hours', async () => {
-    const { AICoachEngine } = await import('../aiCoach');
     const plan = await AICoachEngine.generateWeeklyPlan(
       'Lose fat without starving',
       [],
       new Date('2025-01-15')
     );
     
-    const first48Hours = plan.tasks
-      .filter(t => {
-        const taskDate = new Date(t.day);
-        const startDate = new Date('2025-01-15');
-        const diffDays = Math.floor((taskDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-        return diffDays >= 0 && diffDays < 2;
-      });
+    // Get first 2 days (first 48 hours)
+    const sortedDays = [...new Set(plan.tasks.map(t => t.day))].sort();
+    const first2Days = sortedDays.slice(0, 2);
+    const first48Hours = plan.tasks.filter(t => first2Days.includes(t.day));
     
     const hasEnvOrGrocery = first48Hours.some(
       t => t.actionType === 'environment' || t.actionType === 'grocery'
@@ -27,27 +21,21 @@ describe('Plan Constraints (Fat Loss)', () => {
   });
 
   it('enforces protein anchor in first 48 hours', async () => {
-    const { AICoachEngine } = await import('../aiCoach');
     const plan = await AICoachEngine.generateWeeklyPlan(
       'Lose fat without starving',
       [],
       new Date('2025-01-15')
     );
     
-    const first48Hours = plan.tasks
-      .filter(t => {
-        const taskDate = new Date(t.day);
-        const startDate = new Date('2025-01-15');
-        const diffDays = Math.floor((taskDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-        return diffDays >= 0 && diffDays < 2;
-      });
+    const sortedDays = [...new Set(plan.tasks.map(t => t.day))].sort();
+    const first2Days = sortedDays.slice(0, 2);
+    const first48Hours = plan.tasks.filter(t => first2Days.includes(t.day));
     
     const hasProtein = first48Hours.some(t => t.actionType === 'protein_anchor');
     expect(hasProtein).toBe(true);
   });
 
   it('enforces 2 craving plan tasks when habits mention cravings', async () => {
-    const { AICoachEngine } = await import('../aiCoach');
     const answers: GoalClarificationAnswer[] = [
       {
         id: '1',
@@ -70,7 +58,6 @@ describe('Plan Constraints (Fat Loss)', () => {
   });
 
   it('ensures every day has a satiety action', async () => {
-    const { AICoachEngine } = await import('../aiCoach');
     const plan = await AICoachEngine.generateWeeklyPlan(
       'Lose fat without starving',
       [],
@@ -91,7 +78,6 @@ describe('Plan Constraints (Fat Loss)', () => {
   });
 
   it('caps actions per day to max 3', async () => {
-    const { AICoachEngine } = await import('../aiCoach');
     const plan = await AICoachEngine.generateWeeklyPlan(
       'Lose fat without starving',
       [],
