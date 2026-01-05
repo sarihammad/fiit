@@ -11,15 +11,15 @@
 export const Copy = {
   // ===== START SCREEN =====
   start: {
-    headline: "What do you want to change about your nutrition?",
-    subheadline: "Type it messy. We'll make it actionable.",
+    headline: "What's your fat loss focus right now?",
+    subheadline: "No perfect plan. Just 1–3 actions per day.",
     placeholder: "e.g., Lose 15 lbs without starving",
     examples: [
       "Lose 15 lbs without starving",
+      "Stop restarting my diet every week",
       "Hit 140g protein daily",
       "Stop ordering food 5x/week",
       "Meal prep twice a week",
-      "Reduce sugar cravings at night",
     ],
     continueButton: "Continue",
     coachingHeader: "Let's make this realistic.",
@@ -73,8 +73,8 @@ export const Copy = {
 
   // ===== TODAY SCREEN =====
   today: {
-    headline: "Today.",
-    subheadline: "Just do the next obvious thing.",
+    headline: "Today",
+    subheadline: "Do the next obvious fat-loss action.",
     noTasks: "No actions scheduled for today. You're free to reset or plan ahead.",
     startButton: "Start",
     notTodayButton: "Not today",
@@ -85,6 +85,9 @@ export const Copy = {
       tooLong: "Too long",
       notImportant: "Not important",
       dontKnowHow: "Don't know how",
+      cravings: "Cravings",
+      noFoodReady: "No food ready",
+      noTime: "No time",
     },
     makeItEasier: "Make it 5 minutes",
     makeItEasierTitle: "Want a 5-minute version?",
@@ -121,7 +124,7 @@ export const Copy = {
   // ===== UPGRADE =====
   upgrade: {
     headline: "Get consistent faster",
-    subheadline: "Unlimited resets + unlimited 'Make it 5 minutes'.",
+    subheadline: "Unlimited reset week + unlimited 'Make it 5 minutes'.",
     features: {
       unlimitedResets: "Unlimited week resets",
       unlimitedMicroSteps: "Unlimited 'Make it 5 minutes'",
