@@ -11,20 +11,20 @@ describe('AICoachEngine', () => {
     expect(question.questionText.length).toBeGreaterThan(3);
   });
 
-  it('generates a nutrition-focused weekly plan with limited tasks', async () => {
+  it('generates a fat loss weekly plan with limited tasks', async () => {
     const plan = await AICoachEngine.generateWeeklyPlan(
       'Lose 15 lbs without starving',
       [],
       new Date('2025-01-06')
     );
-    expect(plan.planTitle).toContain('Nutrition Plan');
+    expect(plan.planTitle).toContain('Fat Loss Plan');
     expect(plan.tasks.length).toBeGreaterThan(0);
     expect(plan.tasks.length).toBeLessThanOrEqual(21);
     const firstTask = plan.tasks[0];
     expect(firstTask.title.length).toBeGreaterThan(3);
     expect(firstTask.estimateMinutes).toBeGreaterThanOrEqual(5);
     expect(firstTask.actionType).toBeTruthy();
-    expect(['meal_prep', 'grocery', 'protein', 'hydration', 'workout', 'sleep', 'environment', 'craving_plan']).toContain(firstTask.actionType);
+    expect(['meal_prep', 'grocery', 'protein_anchor', 'steps', 'hydration', 'sleep', 'environment', 'craving_plan']).toContain(firstTask.actionType);
     expect(plan.rulesOfTheWeek).toBeDefined();
     expect(plan.rulesOfTheWeek.length).toBeGreaterThan(0);
     expect(plan.rulesOfTheWeek.length).toBeLessThanOrEqual(3);
