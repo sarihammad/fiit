@@ -11,6 +11,8 @@ import { ActionTypeBadge } from '@/components/ActionTypeBadge';
 import { AICoachEngine } from '@/services/aiCoach';
 import { track, trackScreenView } from '@/services/analytics';
 import { Copy, formatCopy } from '@/copy/strings';
+import { generateCoachFeedback, DailyLog, NutritionTargets } from '@/services/nutritionCoach';
+import { generateDailyActions, CoachAction } from '@/services/fatLossActionPlanner';
 
 export const TodayScreen: React.FC = () => {
   const { theme } = useTheme();
@@ -44,6 +46,8 @@ export const TodayScreen: React.FC = () => {
   const [showLaterToday, setShowLaterToday] = useState(false);
   const [showFocusTimer, setShowFocusTimer] = useState(false);
   const [focusTimerTask, setFocusTimerTask] = useState<typeof todayTasks[0] | null>(null);
+  const [coachActions, setCoachActions] = useState<CoachAction[]>([]);
+  const [coachFeedback, setCoachFeedback] = useState<ReturnType<typeof generateCoachFeedback> | null>(null);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -53,6 +57,31 @@ export const TodayScreen: React.FC = () => {
     if (activePlanId) {
       useCoachStore.getState().adaptPlanForAvoidance(activePlanId, today);
     }
+    
+    // Generate coach actions from logs (if available)
+    // For now, use mock data - in production, this would come from meal log store
+    const mockTodayLog: DailyLog | null = null; // TODO: Get from meal log store
+    const mockYesterdayLog: DailyLog | null = null; // TODO: Get from meal log store
+    const mockTargets: NutritionTargets = {
+      calories: 2000,
+      protein: 120,
+      hydration: 8,
+    };
+    
+    // Generate actions from logs (fallback to plan tasks if no logs)
+    if (mockTodayLog || mockYesterdayLog) {
+      const actions = generateDailyActions(
+        mockTodayLog,
+        mockYesterdayLog,
+        [],
+        mockTargets
+      );
+      setCoachActions(actions);
+    }
+    
+    // Generate coach feedback
+    const feedback = generateCoachFeedback(mockTodayLog, mockTargets);
+    setCoachFeedback(feedback);
   }, [activePlanId, today]);
   const microStepRemaining = useMemo(() => {
     if (!microStepWindowStart) {
@@ -144,6 +173,94 @@ export const TodayScreen: React.FC = () => {
         >
           {Copy.today.subheadline}
         </Text>
+
+        {/* Coach Feedback Card */}
+        {coachFeedback && (
+          <Card style={{ marginBottom: 16 }}>
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: '600',
+                color: theme.colors.text.primary,
+                marginBottom: 12,
+              }}
+            >
+              Daily Check-in
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: theme.colors.text.secondary,
+                marginBottom: 12,
+              }}
+            >
+              {coachFeedback.summary}
+            </Text>
+            {coachFeedback.proteinNote && (
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: theme.colors.text.secondary,
+                  marginBottom: 8,
+                  fontStyle: 'italic',
+                }}
+              >
+                💪 {coachFeedback.proteinNote}
+              </Text>
+            )}
+            {coachFeedback.hydrationNote && (
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: theme.colors.text.secondary,
+                  marginBottom: 8,
+                  fontStyle: 'italic',
+                }}
+              >
+                💧 {coachFeedback.hydrationNote}
+              </Text>
+            )}
+            {coachFeedback.calorieNote && (
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: theme.colors.text.secondary,
+                  marginBottom: 8,
+                  fontStyle: 'italic',
+                }}
+              >
+                📊 {coachFeedback.calorieNote}
+              </Text>
+            )}
+            <View
+              style={{
+                marginTop: 12,
+                paddingTop: 12,
+                borderTopWidth: 1,
+                borderTopColor: theme.colors.border.primary,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: theme.colors.text.primary,
+                  marginBottom: 4,
+                }}
+              >
+                Tomorrow's Tip
+              </Text>
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: theme.colors.text.secondary,
+                }}
+              >
+                {coachFeedback.tomorrowTip}
+              </Text>
+            </View>
+          </Card>
+        )}
 
         {microStepRemaining === 0 && (
           <Card style={{ marginBottom: 16 }}>
