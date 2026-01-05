@@ -9,25 +9,25 @@ interface ActionTypeBadgeProps {
 }
 
 const actionTypeLabels: Record<ActionType, string> = {
-  meal_prep: 'Meal Prep',
   grocery: 'Grocery',
-  protein: 'Protein',
+  meal_prep: 'Meal Prep',
+  protein_anchor: 'Protein',
+  steps: 'Steps',
   hydration: 'Hydration',
-  workout: 'Workout',
+  craving_plan: 'Cravings',
   sleep: 'Sleep',
   environment: 'Environment',
-  craving_plan: 'Craving Plan',
 };
 
 const actionTypeColors: Record<ActionType, { bg: string; text: string }> = {
-  meal_prep: { bg: '#fef3c7', text: '#92400e' },
   grocery: { bg: '#dbeafe', text: '#1e40af' },
-  protein: { bg: '#fce7f3', text: '#9f1239' },
+  meal_prep: { bg: '#fef3c7', text: '#92400e' },
+  protein_anchor: { bg: '#fce7f3', text: '#9f1239' },
+  steps: { bg: '#f3e8ff', text: '#6b21a8' },
   hydration: { bg: '#e0f2fe', text: '#0c4a6e' },
-  workout: { bg: '#f3e8ff', text: '#6b21a8' },
+  craving_plan: { bg: '#fff7ed', text: '#9a3412' },
   sleep: { bg: '#f1f5f9', text: '#475569' },
   environment: { bg: '#ecfdf5', text: '#065f46' },
-  craving_plan: { bg: '#fff7ed', text: '#9a3412' },
 };
 
 export const ActionTypeBadge: React.FC<ActionTypeBadgeProps> = ({

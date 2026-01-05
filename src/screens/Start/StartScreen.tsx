@@ -12,6 +12,7 @@ import { track, trackScreenView } from '@/services/analytics';
 import { GoalClarificationAnswer } from '@/types/coach';
 import { RootStackNavigationProp } from '@/utils/navigation';
 import { Copy } from '@/copy/strings';
+import { getNextFatLossQuestion, FatLossQuestion } from '@/utils/fatLossQuestions';
 
 const MAX_QUESTIONS = 7;
 
@@ -36,8 +37,7 @@ export const StartScreen: React.FC = () => {
   );
 
   const [goalText, setGoalText] = useState(activeGoal?.title || '');
-  const [questionText, setQuestionText] = useState<string | null>(null);
-  const [questionKey, setQuestionKey] = useState<string | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<FatLossQuestion | null>(null);
   const [answerText, setAnswerText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
@@ -52,21 +52,14 @@ export const StartScreen: React.FC = () => {
   }, [activeGoal, hasAcceptedDisclaimer]);
 
   useEffect(() => {
-    const hydrateQuestion = async () => {
-      if (!activeGoal) return;
-      if (goalAnswers.length >= MAX_QUESTIONS) {
-        navigation.navigate('Plan');
-        return;
-      }
-      const nextQuestion = await AICoachEngine.getClarificationQuestion(
-        activeGoal.title,
-        goalAnswers
-      );
-      setQuestionKey(nextQuestion.questionKey);
-      setQuestionText(nextQuestion.questionText);
-    };
-
-    hydrateQuestion();
+    if (!activeGoal) return;
+    if (goalAnswers.length >= MAX_QUESTIONS) {
+      navigation.navigate('Plan');
+      return;
+    }
+    // Use fat loss questions directly
+    const nextQuestion = getNextFatLossQuestion(goalAnswers);
+    setCurrentQuestion(nextQuestion);
   }, [activeGoal, goalAnswers, navigation]);
 
   useEffect(() => {
@@ -84,55 +77,47 @@ export const StartScreen: React.FC = () => {
     try {
       track('goal_intake_submitted', { length: goalText.trim().length });
       const goal = createGoal(goalText.trim());
-      const nextQuestion = await AICoachEngine.getClarificationQuestion(
-        goal.title,
-        []
-      );
-      setQuestionKey(nextQuestion.questionKey);
-      setQuestionText(nextQuestion.questionText);
+      const nextQuestion = getNextFatLossQuestion([]);
+      setCurrentQuestion(nextQuestion);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAnswerSubmit = async () => {
-    if (!activeGoal || !questionKey || !questionText) return;
-    if (!answerText.trim()) {
+  const handleAnswerSubmit = (selectedAnswer?: string) => {
+    if (!activeGoal || !currentQuestion) return;
+    const answer = selectedAnswer || answerText.trim();
+    if (!answer) {
       Alert.alert(Copy.start.answerNeeded, Copy.start.answerNeededMessage);
       return;
     }
     setIsLoading(true);
     try {
       track('clarification_answered', {
-        questionKey,
-        answerLength: answerText.trim().length,
+        questionKey: currentQuestion.key,
+        answerLength: answer.length,
         index: goalAnswers.length + 1,
         totalTarget: MAX_QUESTIONS,
       });
-      addAnswer(activeGoal.id, questionKey, questionText, answerText.trim());
+      addAnswer(activeGoal.id, currentQuestion.key, currentQuestion.text, answer);
       setAnswerText('');
       if (goalAnswers.length + 1 >= MAX_QUESTIONS) {
         track('clarification_completed', { totalAnswers: goalAnswers.length + 1 });
         navigation.navigate('Plan');
         return;
       }
-      const nextAnswers: GoalClarificationAnswer[] = [
+      const nextQuestion = getNextFatLossQuestion([
         ...goalAnswers,
         {
           id: 'local_preview',
           goalId: activeGoal.id,
-          questionKey,
-          questionText,
-          answerText: answerText.trim(),
+          questionKey: currentQuestion.key,
+          questionText: currentQuestion.text,
+          answerText: answer,
           createdAt: new Date().toISOString(),
         },
-      ];
-      const nextQuestion = await AICoachEngine.getClarificationQuestion(
-        activeGoal.title,
-        nextAnswers
-      );
-      setQuestionKey(nextQuestion.questionKey);
-      setQuestionText(nextQuestion.questionText);
+      ]);
+      setCurrentQuestion(nextQuestion);
     } finally {
       setIsLoading(false);
     }
@@ -262,33 +247,49 @@ export const StartScreen: React.FC = () => {
                 fontSize: 18,
                 fontWeight: '600',
                 color: theme.colors.text.primary,
-                marginBottom: 12,
-              }}
-            >
-              {questionText || 'Loading question…'}
-            </Text>
-            <TextInput
-              value={answerText}
-              onChangeText={setAnswerText}
-              placeholder={Copy.start.answerPlaceholder}
-              placeholderTextColor={theme.colors.text.tertiary}
-              style={{
-                borderWidth: 1,
-                borderColor: theme.colors.border.primary,
-                borderRadius: 12,
-                padding: 16,
-                fontSize: 16,
-                color: theme.colors.text.primary,
-                backgroundColor: theme.colors.surface.primary,
                 marginBottom: 16,
               }}
-            />
-            <Button
-              title={Copy.start.continueButton}
-              onPress={handleAnswerSubmit}
-              variant="primary"
-              disabled={isLoading}
-            />
+            >
+              {currentQuestion?.text || 'Loading question…'}
+            </Text>
+            {currentQuestion?.options ? (
+              <View style={{ gap: 8, marginBottom: 16 }}>
+                {currentQuestion.options.map((option, idx) => (
+                  <Button
+                    key={idx}
+                    title={option}
+                    onPress={() => handleAnswerSubmit(option)}
+                    variant="secondary"
+                    disabled={isLoading}
+                  />
+                ))}
+              </View>
+            ) : (
+              <>
+                <TextInput
+                  value={answerText}
+                  onChangeText={setAnswerText}
+                  placeholder={Copy.start.answerPlaceholder}
+                  placeholderTextColor={theme.colors.text.tertiary}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.border.primary,
+                    borderRadius: 12,
+                    padding: 16,
+                    fontSize: 16,
+                    color: theme.colors.text.primary,
+                    backgroundColor: theme.colors.surface.primary,
+                    marginBottom: 16,
+                  }}
+                />
+                <Button
+                  title={Copy.start.continueButton}
+                  onPress={() => handleAnswerSubmit()}
+                  variant="primary"
+                  disabled={isLoading}
+                />
+              </>
+            )}
           </Card>
         )}
       </ScrollView>

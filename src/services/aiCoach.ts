@@ -3,13 +3,13 @@ import { GoalClarificationAnswer, ActionType } from '@/types/coach';
 
 const QuestionSchema = z.object({
   questionKey: z.enum([
-    'targetOutcome',
+    'target',
+    'calories',
+    'protein',
+    'cooking',
+    'cravings',
+    'steps',
     'constraints',
-    'schedule',
-    'resources',
-    'habits',
-    'timeAvailable',
-    'confidence',
   ]),
   questionText: z.string().min(3),
 });
@@ -47,26 +47,26 @@ const MicroStepSchema = z.object({
 });
 
 const questionOrder: z.infer<typeof QuestionSchema>['questionKey'][] = [
-  'targetOutcome',
+  'target',
+  'calories',
+  'protein',
+  'cooking',
+  'cravings',
+  'steps',
   'constraints',
-  'schedule',
-  'resources',
-  'habits',
-  'timeAvailable',
-  'confidence',
 ];
 
 const questionTemplates: Record<
   z.infer<typeof QuestionSchema>['questionKey'],
   string
 > = {
-  targetOutcome: 'What does success look like in 7 days?',
-  constraints: 'Any dietary constraints or foods you avoid?',
-  schedule: 'How many days can you cook / meal prep this week?',
-  resources: "What's your budget + access to a kitchen?",
-  habits: 'What usually causes you to slip? (cravings, time, stress, social, boredom)',
-  timeAvailable: 'How much time can you spend daily? (5/15/30 min)',
-  confidence: 'How confident are you right now (1–10)? What would raise it by 1?',
+  target: "What's your fat loss target for the next 7 days?",
+  calories: 'Do you want a calorie target or just habits?',
+  protein: 'What protein target feels realistic?',
+  cooking: 'How many days can you cook or meal prep this week?',
+  cravings: 'When do cravings hit hardest?',
+  steps: 'Daily movement goal?',
+  constraints: 'Any constraints?',
 };
 
 const coachCache = new Map<string, unknown>();
@@ -156,7 +156,7 @@ const enforcePlanConstraints = (
   const hasGroceryEnv = first48Tasks.some(
     t => t.actionType === 'grocery' || t.actionType === 'environment'
   );
-  const hasProtein = first48Tasks.some(t => t.actionType === 'protein');
+  const hasProtein = first48Tasks.some(t => t.actionType === 'protein_anchor');
   const hasCravingPlan = tasks.some(t => t.actionType === 'craving_plan');
 
   // Add missing keystone actions if needed
@@ -182,7 +182,7 @@ const enforcePlanConstraints = (
       whyThisMatters: 'Protein keeps you full and supports your goals.',
       nextAction: 'Eat 30g protein at breakfast and lunch.',
       estimateMinutes: 10,
-      actionType: 'protein',
+      actionType: 'protein_anchor',
     });
   }
 
@@ -210,7 +210,7 @@ const buildFallbackQuestion = (
   answers: GoalClarificationAnswer[]
 ): z.infer<typeof QuestionSchema> => {
   const asked = new Set(answers.map(answer => answer.questionKey));
-  const nextKey = questionOrder.find(key => !asked.has(key)) || 'confidence';
+  const nextKey = questionOrder.find(key => !asked.has(key)) || 'constraints';
   return {
     questionKey: nextKey,
     questionText: questionTemplates[nextKey],
