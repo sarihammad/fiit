@@ -191,33 +191,61 @@ const enforcePlanConstraints = (
     });
   }
 
-  // Ensure craving plan if triggers exist
-  if (hasCravings && !hasCravingPlan) {
-    const first3Days = days.slice(0, 3);
-    const firstAvailableDay = first3Days[0] || days[0] || new Date().toISOString().slice(0, 10);
-    tasks.push({
-      day: firstAvailableDay,
-      priority: 2,
-      title: 'Create a craving plan',
-      whyThisMatters: 'Knowing what to do when cravings hit prevents slips.',
-      nextAction: 'Write down 3 go-to snacks for when cravings hit.',
-      estimateMinutes: 10,
-      actionType: 'craving_plan',
-    });
+  // Ensure craving plan if triggers exist (at least 2 across the week)
+  if (hasCravings) {
+    const cravingPlanCount = tasks.filter(t => t.actionType === 'craving_plan').length;
+    if (cravingPlanCount < 2) {
+      const first3Days = days.slice(0, 3);
+      const availableDays = first3Days.filter(day => {
+        const dayTasks = tasksByDay[day] || [];
+        return dayTasks.length < 3;
+      });
+      const firstAvailableDay = availableDays[0] || days[0] || new Date().toISOString().slice(0, 10);
+      tasks.push({
+        day: firstAvailableDay,
+        priority: 2,
+        title: 'Create a craving plan',
+        whyThisMatters: 'Knowing what to do when cravings hit prevents slips.',
+        nextAction: 'Write down 3 go-to snacks for when cravings hit (protein-rich).',
+        estimateMinutes: 10,
+        actionType: 'craving_plan',
+      });
+      // Add second one if still needed
+      if (cravingPlanCount === 0 && availableDays.length > 1) {
+        const secondDay = availableDays[1] || days[1];
+        if (secondDay) {
+          const secondDayTasks = tasksByDay[secondDay] || [];
+          if (secondDayTasks.length < 3) {
+            tasks.push({
+              day: secondDay,
+              priority: 2,
+              title: 'Refine your craving plan',
+              whyThisMatters: 'Having a plan ready prevents diet breaks.',
+              nextAction: 'Add one more protein snack to your craving plan.',
+              estimateMinutes: 5,
+              actionType: 'craving_plan',
+            });
+          }
+        }
+      }
+    }
   }
 
-  // Ensure every day has at least one of: protein_anchor OR steps OR meal_prep
+  // Ensure every day has at least one "satiety" action: protein_anchor OR meal_prep OR environment OR craving_plan
   days.forEach(day => {
     const dayTasks = tasksByDay[day] || [];
-    const hasKeystone = dayTasks.some(
-      t => t.actionType === 'protein_anchor' || t.actionType === 'steps' || t.actionType === 'meal_prep'
+    const hasSatietyAction = dayTasks.some(
+      t => t.actionType === 'protein_anchor' || 
+           t.actionType === 'meal_prep' || 
+           t.actionType === 'environment' || 
+           t.actionType === 'craving_plan'
     );
-    if (!hasKeystone && dayTasks.length < 3) {
+    if (!hasSatietyAction && dayTasks.length < 3) {
       tasks.push({
         day,
         priority: 2,
         title: 'Hit your protein target today',
-        whyThisMatters: 'Protein keeps you full and supports your goals.',
+        whyThisMatters: 'Protein keeps you full and supports fat loss.',
         nextAction: 'Eat 30g protein at breakfast and lunch.',
         estimateMinutes: 10,
         actionType: 'protein_anchor',
