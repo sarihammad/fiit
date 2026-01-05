@@ -488,67 +488,6 @@ export const useCoachStore = create<CoachState>()(
           });
         }
 
-        // notImportant: replace with keystone action if missing
-        if (byReason.notImportant && byReason.notImportant.length > 0) {
-          byReason.notImportant.forEach(task => {
-            const tomorrowTask = tomorrowTasks.find(
-              t => t.id === task.id || (t.title === task.title && t.priority === task.priority)
-            );
-            if (tomorrowTask) {
-              // Check if keystone actions exist
-              const hasProtein = tomorrowTasks.some(t => t.actionType === 'protein_anchor');
-              const hasHydration = tomorrowTasks.some(t => t.actionType === 'hydration');
-              const hasEnvironment = tomorrowTasks.some(t => t.actionType === 'environment');
-
-              // Replace with missing keystone
-              if (!hasProtein) {
-                updates.push({
-                  id: tomorrowTask.id,
-                  updates: {
-                    title: 'Hit your protein target today',
-                    whyThisMatters: 'Protein keeps you full and supports your goals.',
-                    nextAction: 'Eat 30g protein at breakfast and lunch.',
-                    estimateMinutes: 10,
-                    actionType: 'protein_anchor',
-                    priority: 1,
-                  },
-                });
-              } else if (!hasHydration) {
-                updates.push({
-                  id: tomorrowTask.id,
-                  updates: {
-                    title: 'Track your water intake',
-                    whyThisMatters: 'Hydration supports energy and reduces false hunger.',
-                    nextAction: 'Drink 8 glasses of water today.',
-                    estimateMinutes: 5,
-                    actionType: 'hydration',
-                    priority: 1,
-                  },
-                });
-              } else if (!hasEnvironment) {
-                updates.push({
-                  id: tomorrowTask.id,
-                  updates: {
-                    title: 'Set up your environment',
-                    whyThisMatters: 'A prepared environment makes healthy choices automatic.',
-                    nextAction: 'Clear one counter space and stock 3 protein sources.',
-                    estimateMinutes: 15,
-                    actionType: 'environment',
-                    priority: 1,
-                  },
-                });
-              } else {
-                // Just demote priority
-                updates.push({
-                  id: tomorrowTask.id,
-                  updates: {
-                    priority: 3,
-                  },
-                });
-              }
-            }
-          });
-        }
 
         // Apply updates
         set(state => ({

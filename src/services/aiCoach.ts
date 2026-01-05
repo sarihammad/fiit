@@ -396,8 +396,12 @@ const buildFallbackMicroStep = (
     fiveMinuteVersion = 'Set a 5-minute timer. Do what you can, then stop.';
   } else if (deferReason === 'dontKnowHow') {
     fiveMinuteVersion = 'Spend 5 minutes researching the first step. Just learn, don\'t do.';
-  } else if (deferReason === 'notImportant') {
-    fiveMinuteVersion = 'Skip it for now. Focus on what matters today.';
+  } else if (deferReason === 'cravings') {
+    fiveMinuteVersion = 'Right now: drink a glass of water and eat one protein source. Then reassess.';
+  } else if (deferReason === 'noFoodReady') {
+    fiveMinuteVersion = 'Quick fix: buy one ready-to-eat protein (Greek yogurt, deli meat, hard-boiled eggs).';
+  } else if (deferReason === 'noTime') {
+    fiveMinuteVersion = '5-minute version: do the smallest possible step. Set a timer.';
   }
   return {
     rewrittenTitle: taskTitle,

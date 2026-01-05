@@ -52,7 +52,6 @@ jest.mock('@/copy/strings', () => ({
         title: 'Why not?',
         tooHard: 'Too hard',
         tooLong: 'Too long',
-        notImportant: 'Not important',
         dontKnowHow: 'Don\'t know how',
       },
     },
