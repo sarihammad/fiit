@@ -412,6 +412,82 @@ export const useCoachStore = create<CoachState>()(
           });
         }
 
+        // cravings: insert craving_plan action tomorrow + environment tweak
+        if (byReason.cravings && byReason.cravings.length > 0) {
+          byReason.cravings.forEach(task => {
+            if (tomorrowTasks.length < 3) {
+              const tomorrowTask = tomorrowTasks.find(
+                t => t.id === task.id || (t.title === task.title && t.priority === task.priority)
+              );
+              // Insert craving plan action
+              newTasks.push({
+                title: 'Create a craving plan',
+                whyThisMatters: 'Knowing what to do when cravings hit prevents slips.',
+                nextAction: 'Write down 3 go-to snacks for when cravings hit.',
+                estimateMinutes: 10,
+                scheduledDate: tomorrowStr,
+                priority: 1,
+                actionType: 'craving_plan',
+                status: 'todo',
+              });
+              // Also add environment tweak if missing
+              const hasEnvironment = tomorrowTasks.some(t => t.actionType === 'environment');
+              if (!hasEnvironment && tomorrowTasks.length < 2) {
+                newTasks.push({
+                  title: 'Remove trigger foods from sight',
+                  whyThisMatters: 'Out of sight, out of mind.',
+                  nextAction: 'Move 2 trigger foods to hard-to-reach place.',
+                  estimateMinutes: 5,
+                  scheduledDate: tomorrowStr,
+                  priority: 2,
+                  actionType: 'environment',
+                  status: 'todo',
+                });
+              }
+            }
+          });
+        }
+
+        // noFoodReady: insert meal_prep or grocery block ASAP
+        if (byReason.noFoodReady && byReason.noFoodReady.length > 0) {
+          byReason.noFoodReady.forEach(task => {
+            if (tomorrowTasks.length < 3) {
+              // Check if meal prep or grocery already exists
+              const hasMealPrep = tomorrowTasks.some(t => t.actionType === 'meal_prep' || t.actionType === 'grocery');
+              if (!hasMealPrep) {
+                newTasks.push({
+                  title: 'Quick grocery run for protein',
+                  whyThisMatters: 'Having food ready makes consistency automatic.',
+                  nextAction: 'Buy 3 ready-to-eat protein sources.',
+                  estimateMinutes: 20,
+                  scheduledDate: tomorrowStr,
+                  priority: 1,
+                  actionType: 'grocery',
+                  status: 'todo',
+                });
+              }
+            }
+          });
+        }
+
+        // noTime: convert task into 5-minute version automatically
+        if (byReason.noTime && byReason.noTime.length > 0) {
+          byReason.noTime.forEach(task => {
+            const tomorrowTask = tomorrowTasks.find(
+              t => t.id === task.id || (t.title === task.title && t.priority === task.priority)
+            );
+            if (tomorrowTask) {
+              updates.push({
+                id: tomorrowTask.id,
+                updates: {
+                  estimateMinutes: 5,
+                  nextAction: tomorrowTask.nextAction.split('.')[0] + ' (5 min version).',
+                },
+              });
+            }
+          });
+        }
+
         // notImportant: replace with keystone action if missing
         if (byReason.notImportant && byReason.notImportant.length > 0) {
           byReason.notImportant.forEach(task => {
@@ -420,7 +496,7 @@ export const useCoachStore = create<CoachState>()(
             );
             if (tomorrowTask) {
               // Check if keystone actions exist
-              const hasProtein = tomorrowTasks.some(t => t.actionType === 'protein');
+              const hasProtein = tomorrowTasks.some(t => t.actionType === 'protein_anchor');
               const hasHydration = tomorrowTasks.some(t => t.actionType === 'hydration');
               const hasEnvironment = tomorrowTasks.some(t => t.actionType === 'environment');
 
@@ -433,7 +509,7 @@ export const useCoachStore = create<CoachState>()(
                     whyThisMatters: 'Protein keeps you full and supports your goals.',
                     nextAction: 'Eat 30g protein at breakfast and lunch.',
                     estimateMinutes: 10,
-                    actionType: 'protein',
+                    actionType: 'protein_anchor',
                     priority: 1,
                   },
                 });
