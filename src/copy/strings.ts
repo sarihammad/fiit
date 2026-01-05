@@ -13,13 +13,13 @@ export const Copy = {
   start: {
     headline: "What's your fat loss focus right now?",
     subheadline: "No perfect plan. Just 1–3 actions per day.",
-    placeholder: "e.g., Lose 15 lbs without starving",
+    placeholder: "e.g., Lose fat without starving",
     examples: [
-      "Lose 15 lbs without starving",
-      "Stop restarting my diet every week",
-      "Hit 140g protein daily",
-      "Stop ordering food 5x/week",
-      "Meal prep twice a week",
+      "Lose fat without starving",
+      "Stop late-night snacking",
+      "Stay in a deficit without tracking perfectly",
+      "Meal prep to stop ordering food",
+      "Hit protein so I stay full",
     ],
     continueButton: "Continue",
     coachingHeader: "Let's make this realistic.",
@@ -31,19 +31,19 @@ export const Copy = {
 
   // ===== COACHING QUESTIONS =====
   questions: {
-    targetOutcome: "What does success look like in 7 days?",
-    constraints: "Any dietary constraints or foods you avoid?",
-    schedule: "How many days can you cook / meal prep this week?",
-    resources: "What's your budget + access to a kitchen?",
-    habits: "What usually causes you to slip? (cravings, time, stress, social, boredom)",
-    timeAvailable: "How much time can you spend daily? (5/15/30 min)",
-    confidence: "How confident are you right now (1–10)? What would raise it by 1?",
+    targetOutcome: "What does a good week look like? (scale, waist, or consistency)",
+    constraints: "Any foods you avoid / dietary constraints?",
+    schedule: "How many days can you cook or meal prep?",
+    resources: "What's your budget + kitchen access?",
+    habits: "What breaks your diet most? (cravings, weekends, stress, social)",
+    timeAvailable: "How much time per day can you give? (5/15/30 min)",
+    confidence: "Confidence 1–10. What would raise it by 1?",
   },
 
   // ===== PLAN SCREEN =====
   plan: {
-    headline: "Your 7-Day Plan",
-    subheadline: "Once you commit, it locks — so you stop restarting and start getting consistent.",
+    headline: "Your 7-Day Fat Loss Plan",
+    subheadline: "Lock it so you stop restarting.",
     previewTitle: "Preview your plan",
     generateButton: "Build my 7-day plan",
     generating: "Building...",
@@ -73,8 +73,8 @@ export const Copy = {
 
   // ===== TODAY SCREEN =====
   today: {
-    headline: "Today",
-    subheadline: "Do the next obvious fat-loss action.",
+    headline: "Today's fat-loss actions",
+    subheadline: "Do the next obvious thing.",
     noTasks: "No actions scheduled for today. You're free to reset or plan ahead.",
     startButton: "Start",
     notTodayButton: "Not today",
@@ -83,9 +83,8 @@ export const Copy = {
       title: "Why not?",
       tooHard: "Too hard",
       tooLong: "Too long",
-      notImportant: "Not important",
-      dontKnowHow: "Don't know how",
-      cravings: "Cravings",
+      dontKnowHow: "Not sure what to do",
+      cravings: "Cravings / hunger",
       noFoodReady: "No food ready",
       noTime: "No time",
     },
