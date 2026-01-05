@@ -1,13 +1,13 @@
 import { GoalClarificationAnswer } from '@/types/coach';
 
 export type FatLossQuestionKey =
-  | 'target'
-  | 'calories'
-  | 'protein'
-  | 'cooking'
-  | 'cravings'
-  | 'steps'
-  | 'constraints';
+  | 'targetOutcome'
+  | 'constraints'
+  | 'schedule'
+  | 'resources'
+  | 'habits'
+  | 'timeAvailable'
+  | 'confidence';
 
 export interface FatLossQuestion {
   key: FatLossQuestionKey;
@@ -18,38 +18,38 @@ export interface FatLossQuestion {
 
 export const fatLossQuestions: FatLossQuestion[] = [
   {
-    key: 'target',
-    text: "What's your fat loss target for the next 7 days?",
-    options: ['-0.5 to 1 lb', 'Stay consistent (no scale focus)'],
-  },
-  {
-    key: 'calories',
-    text: 'Do you want a calorie target or just habits?',
-    options: ['Calorie range', 'Habits only'],
-  },
-  {
-    key: 'protein',
-    text: 'What protein target feels realistic?',
-    options: ['90g', '120g', '150g'],
-  },
-  {
-    key: 'cooking',
-    text: 'How many days can you cook or meal prep this week?',
-    options: ['0', '1', '2', '3+'],
-  },
-  {
-    key: 'cravings',
-    text: 'When do cravings hit hardest?',
-    options: ['Late night', 'Afternoon', 'Stress', 'Weekends', 'Social'],
-  },
-  {
-    key: 'steps',
-    text: 'Daily movement goal?',
-    options: ['6k steps', '8k steps', '10k steps'],
+    key: 'targetOutcome',
+    text: "What does a good week look like? (scale, waist, or consistency)",
+    isFreeText: true,
   },
   {
     key: 'constraints',
-    text: 'Any constraints?',
+    text: "Any foods you avoid / dietary constraints?",
+    isFreeText: true,
+  },
+  {
+    key: 'schedule',
+    text: "How many days can you cook or meal prep?",
+    options: ['0', '1', '2', '3+'],
+  },
+  {
+    key: 'resources',
+    text: "What's your budget + kitchen access?",
+    isFreeText: true,
+  },
+  {
+    key: 'habits',
+    text: "What breaks your diet most? (cravings, weekends, stress, social)",
+    options: ['Cravings', 'Weekends', 'Stress', 'Social', 'Late night'],
+  },
+  {
+    key: 'timeAvailable',
+    text: "How much time per day can you give? (5/15/30 min)",
+    options: ['5 min', '15 min', '30 min'],
+  },
+  {
+    key: 'confidence',
+    text: "Confidence 1–10. What would raise it by 1?",
     isFreeText: true,
   },
 ];

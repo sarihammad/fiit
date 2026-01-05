@@ -3,13 +3,13 @@ import { GoalClarificationAnswer, ActionType } from '@/types/coach';
 
 const QuestionSchema = z.object({
   questionKey: z.enum([
-    'target',
-    'calories',
-    'protein',
-    'cooking',
-    'cravings',
-    'steps',
+    'targetOutcome',
     'constraints',
+    'schedule',
+    'resources',
+    'habits',
+    'timeAvailable',
+    'confidence',
   ]),
   questionText: z.string().min(3),
 });
@@ -47,26 +47,26 @@ const MicroStepSchema = z.object({
 });
 
 const questionOrder: z.infer<typeof QuestionSchema>['questionKey'][] = [
-  'target',
-  'calories',
-  'protein',
-  'cooking',
-  'cravings',
-  'steps',
+  'targetOutcome',
   'constraints',
+  'schedule',
+  'resources',
+  'habits',
+  'timeAvailable',
+  'confidence',
 ];
 
 const questionTemplates: Record<
   z.infer<typeof QuestionSchema>['questionKey'],
   string
 > = {
-  target: "What's your fat loss target for the next 7 days?",
-  calories: 'Do you want a calorie target or just habits?',
-  protein: 'What protein target feels realistic?',
-  cooking: 'How many days can you cook or meal prep this week?',
-  cravings: 'When do cravings hit hardest?',
-  steps: 'Daily movement goal?',
-  constraints: 'Any constraints?',
+  targetOutcome: "What does a good week look like? (scale, waist, or consistency)",
+  constraints: "Any foods you avoid / dietary constraints?",
+  schedule: "How many days can you cook or meal prep?",
+  resources: "What's your budget + kitchen access?",
+  habits: "What breaks your diet most? (cravings, weekends, stress, social)",
+  timeAvailable: "How much time per day can you give? (5/15/30 min)",
+  confidence: "Confidence 1–10. What would raise it by 1?",
 };
 
 const coachCache = new Map<string, unknown>();
@@ -268,7 +268,7 @@ const buildFallbackQuestion = (
   answers: GoalClarificationAnswer[]
 ): z.infer<typeof QuestionSchema> => {
   const asked = new Set(answers.map(answer => answer.questionKey));
-  const nextKey = questionOrder.find(key => !asked.has(key)) || 'constraints';
+  const nextKey = questionOrder.find(key => !asked.has(key)) || 'confidence';
   return {
     questionKey: nextKey,
     questionText: questionTemplates[nextKey],
