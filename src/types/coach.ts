@@ -45,7 +45,6 @@ export type ActionType =
 export type DeferReason =
   | 'tooHard'
   | 'tooLong'
-  | 'notImportant'
   | 'dontKnowHow'
   | 'cravings'
   | 'noFoodReady'
