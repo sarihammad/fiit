@@ -22,14 +22,14 @@ const PlanTaskSchema = z.object({
   nextAction: z.string().min(3),
   estimateMinutes: z.number().int().min(5).max(180),
   actionType: z.enum([
-    'meal_prep',
     'grocery',
-    'protein',
+    'meal_prep',
+    'protein_anchor',
+    'steps',
     'hydration',
-    'workout',
+    'craving_plan',
     'sleep',
     'environment',
-    'craving_plan',
   ]),
 });
 
@@ -92,34 +92,38 @@ const ensureSchema = <T>(
   return fallback;
 };
 
+// Use shared normalizeTask utility for consistency
+import { normalizeTask } from '@/utils/taskNormalizer';
+
 // Infer actionType from task content if missing (safety fallback)
+// This is now handled by normalizeTask, but kept for backward compatibility
 const inferActionType = (task: {
-  title: string;
-  nextAction: string;
+  title?: string;
+  nextAction?: string;
 }): ActionType => {
-  const text = `${task.title} ${task.nextAction}`.toLowerCase();
-  if (text.includes('grocery') || text.includes('shop') || text.includes('buy')) {
+  const text = `${task.title || ''} ${task.nextAction || ''}`.toLowerCase();
+  if (text.includes('grocery') || text.includes('shop') || text.includes('buy') || text.includes('store')) {
     return 'grocery';
   }
-  if (text.includes('meal prep') || text.includes('cook') || text.includes('prepare')) {
+  if (text.includes('prep') || text.includes('cook') || text.includes('batch') || text.includes('meal prep')) {
     return 'meal_prep';
   }
-  if (text.includes('protein')) {
-    return 'protein';
+  if (text.includes('protein') || text.includes('chicken') || text.includes('greek yogurt') || text.includes('shake')) {
+    return 'protein_anchor';
   }
-  if (text.includes('water') || text.includes('hydrat')) {
+  if (text.includes('walk') || text.includes('steps') || text.includes('cardio') || text.includes('movement')) {
+    return 'steps';
+  }
+  if (text.includes('water') || text.includes('hydrat') || text.includes('drink')) {
     return 'hydration';
   }
-  if (text.includes('workout') || text.includes('exercise') || text.includes('train')) {
-    return 'workout';
-  }
-  if (text.includes('sleep') || text.includes('rest')) {
-    return 'sleep';
-  }
-  if (text.includes('craving') || text.includes('snack')) {
+  if (text.includes('craving') || text.includes('snack') || text.includes('binge') || text.includes('late night')) {
     return 'craving_plan';
   }
-  if (text.includes('kitchen') || text.includes('environment') || text.includes('setup') || text.includes('organize')) {
+  if (text.includes('sleep') || text.includes('bedtime') || text.includes('rest')) {
+    return 'sleep';
+  }
+  if (text.includes('kitchen') || text.includes('environment') || text.includes('setup') || text.includes('organize') || text.includes('clean') || text.includes('remove')) {
     return 'environment';
   }
   return 'environment'; // default
@@ -240,7 +244,7 @@ const buildFallbackPlan = (
       whyThisMatters: 'Protein keeps you full and supports your goals.',
       nextAction: 'Eat 30g protein at breakfast and lunch.',
       estimateMinutes: 10,
-      actionType: 'protein' as const,
+      actionType: 'protein_anchor' as const,
     },
     {
       title: 'Create a craving plan',

@@ -2,11 +2,13 @@ export type GoalStatus = 'draft' | 'active' | 'archived';
 export type WeeklyPlanStatus = 'locked' | 'reset_pending' | 'archived';
 export type PlanTaskStatus = 'todo' | 'done' | 'deferred';
 export type ExecutionEventType = 'done' | 'defer' | 'help' | 'open';
+export type GoalTrack = 'fat_loss'; // Hard-locked to fat_loss for now
 
 export interface Goal {
   id: string;
   userId?: string;
   title: string;
+  track?: GoalTrack; // Defaults to 'fat_loss' if missing
   status: GoalStatus;
   createdAt: string;
   updatedAt: string;
@@ -31,16 +33,23 @@ export interface WeeklyPlan {
 }
 
 export type ActionType =
-  | 'meal_prep'
   | 'grocery'
-  | 'protein'
+  | 'meal_prep'
+  | 'protein_anchor'
+  | 'steps'
   | 'hydration'
-  | 'workout'
+  | 'craving_plan'
   | 'sleep'
-  | 'environment'
-  | 'craving_plan';
+  | 'environment';
 
-export type DeferReason = 'tooHard' | 'tooLong' | 'notImportant' | 'dontKnowHow';
+export type DeferReason =
+  | 'tooHard'
+  | 'tooLong'
+  | 'notImportant'
+  | 'dontKnowHow'
+  | 'cravings'
+  | 'noFoodReady'
+  | 'noTime';
 
 export interface PlanTask {
   id: string;
@@ -55,7 +64,7 @@ export interface PlanTask {
   deferCount: number;
   lastDeferredAt?: string;
   lastDeferReason?: DeferReason;
-  actionType?: ActionType;
+  actionType: ActionType; // Required - use normalizeTask if missing
   createdAt: string;
   updatedAt: string;
 }

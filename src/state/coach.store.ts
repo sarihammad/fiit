@@ -6,11 +6,13 @@ import {
   Goal,
   GoalClarificationAnswer,
   GoalStatus,
+  GoalTrack,
   PlanTask,
   PlanTaskStatus,
   WeeklyPlan,
   WeeklyPlanStatus,
 } from '@/types/coach';
+import { normalizeTask } from '@/utils/taskNormalizer';
 
 const createId = (prefix: string) =>
   `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -77,6 +79,11 @@ interface CoachState {
   resetCoach: () => void;
 }
 
+// Normalize tasks on read for backward compatibility
+const normalizeTasksOnRead = (tasks: PlanTask[]): PlanTask[] => {
+  return tasks.map(task => normalizeTask(task));
+};
+
 export const useCoachStore = create<CoachState>()(
   persist(
     (set, get) => ({
@@ -100,6 +107,7 @@ export const useCoachStore = create<CoachState>()(
           id: createId('goal'),
           userId,
           title,
+          track: 'fat_loss', // Hard-locked to fat_loss
           status: 'draft',
           createdAt: timestamp,
           updatedAt: timestamp,
@@ -159,24 +167,14 @@ export const useCoachStore = create<CoachState>()(
       },
 
       addPlanTask: (planId, task) => {
-        const timestamp = new Date().toISOString();
-        const newTask: PlanTask = {
+        // Normalize task to ensure actionType and all required fields
+        const normalized = normalizeTask({
           id: createId('task'),
           weeklyPlanId: planId,
-          title: task.title,
-          whyThisMatters: task.whyThisMatters,
-          nextAction: task.nextAction,
-          estimateMinutes: task.estimateMinutes,
-          scheduledDate: task.scheduledDate,
-          priority: task.priority,
-          status: task.status || 'todo',
-          deferCount: 0,
-          actionType: task.actionType,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        };
-        set(state => ({ planTasks: [...state.planTasks, newTask] }));
-        return newTask;
+          ...task,
+        });
+        set(state => ({ planTasks: [...state.planTasks, normalized] }));
+        return normalized;
       },
 
       markTaskDone: taskId => {
@@ -517,6 +515,20 @@ export const useCoachStore = create<CoachState>()(
     {
       name: 'fiit_coach_store',
       storage: createJSONStorage(() => AsyncStorage),
+      // Normalize tasks on read for backward compatibility
+      partialize: (state) => state,
+      onRehydrateStorage: () => (state) => {
+        if (state?.planTasks) {
+          state.planTasks = normalizeTasksOnRead(state.planTasks);
+        }
+        // Ensure all goals have track
+        if (state?.goals) {
+          state.goals = state.goals.map(goal => ({
+            ...goal,
+            track: goal.track || 'fat_loss',
+          }));
+        }
+      },
     }
   )
 );
