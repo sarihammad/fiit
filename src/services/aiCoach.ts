@@ -129,13 +129,18 @@ const inferActionType = (task: {
   return 'environment'; // default
 };
 
-// Enforce nutrition plan constraints
+// Enforce fat loss plan constraints
 const enforcePlanConstraints = (
   tasks: z.infer<typeof PlanTaskSchema>[],
   answers: GoalClarificationAnswer[]
 ): z.infer<typeof PlanTaskSchema>[] => {
-  const hasCravings = answers.some(
-    a => a.questionKey === 'habits' && a.answerText.toLowerCase().includes('crav')
+  // Check for craving triggers
+  const cravingsAnswer = answers.find(a => a.questionKey === 'cravings');
+  const hasCravings = cravingsAnswer && (
+    cravingsAnswer.answerText.toLowerCase().includes('late night') ||
+    cravingsAnswer.answerText.toLowerCase().includes('stress') ||
+    cravingsAnswer.answerText.toLowerCase().includes('weekend') ||
+    cravingsAnswer.answerText.toLowerCase().includes('afternoon')
   );
   
   // Group tasks by day
@@ -186,10 +191,12 @@ const enforcePlanConstraints = (
     });
   }
 
+  // Ensure craving plan if triggers exist
   if (hasCravings && !hasCravingPlan) {
-    const firstDay = days[0] || new Date().toISOString().slice(0, 10);
+    const first3Days = days.slice(0, 3);
+    const firstAvailableDay = first3Days[0] || days[0] || new Date().toISOString().slice(0, 10);
     tasks.push({
-      day: firstDay,
+      day: firstAvailableDay,
       priority: 2,
       title: 'Create a craving plan',
       whyThisMatters: 'Knowing what to do when cravings hit prevents slips.',
@@ -198,6 +205,57 @@ const enforcePlanConstraints = (
       actionType: 'craving_plan',
     });
   }
+
+  // Ensure every day has at least one of: protein_anchor OR steps OR meal_prep
+  days.forEach(day => {
+    const dayTasks = tasksByDay[day] || [];
+    const hasKeystone = dayTasks.some(
+      t => t.actionType === 'protein_anchor' || t.actionType === 'steps' || t.actionType === 'meal_prep'
+    );
+    if (!hasKeystone && dayTasks.length < 3) {
+      tasks.push({
+        day,
+        priority: 2,
+        title: 'Hit your protein target today',
+        whyThisMatters: 'Protein keeps you full and supports your goals.',
+        nextAction: 'Eat 30g protein at breakfast and lunch.',
+        estimateMinutes: 10,
+        actionType: 'protein_anchor',
+      });
+    }
+  });
+
+  // Enforce estimateMinutes ranges by actionType
+  tasks = tasks.map(task => {
+    let estimate = task.estimateMinutes;
+    switch (task.actionType) {
+      case 'grocery':
+        estimate = Math.max(20, Math.min(45, estimate));
+        break;
+      case 'meal_prep':
+        estimate = Math.max(20, Math.min(60, estimate));
+        break;
+      case 'protein_anchor':
+        estimate = Math.max(5, Math.min(15, estimate));
+        break;
+      case 'steps':
+        estimate = Math.max(10, Math.min(45, estimate));
+        break;
+      case 'hydration':
+        estimate = Math.max(2, Math.min(5, estimate));
+        break;
+      case 'craving_plan':
+        estimate = Math.max(5, Math.min(15, estimate));
+        break;
+      case 'sleep':
+        estimate = Math.max(5, Math.min(15, estimate));
+        break;
+      case 'environment':
+        estimate = Math.max(5, Math.min(20, estimate));
+        break;
+    }
+    return { ...task, estimateMinutes: estimate };
+  });
 
   // Ensure all tasks have actionType
   return tasks.map(task => ({
@@ -288,14 +346,14 @@ const buildFallbackPlan = (
   }
 
   return {
-    planTitle: `7-Day Nutrition Plan: ${goalTitle}`,
+    planTitle: `7-Day Fat Loss Plan: ${goalTitle}`,
     tasks,
     rulesOfTheWeek: [
-      'Eat protein at every meal',
+      'Hit your protein target every day',
       'No food delivery apps this week',
       'Meal prep happens on Sunday',
     ],
-    whyThisWorks: 'This plan starts with easy wins (kitchen setup, meal prep planning) and builds habits that make consistency automatic.',
+    whyThisWorks: 'This plan starts with easy wins (kitchen setup, protein anchors) and builds habits that make fat loss inevitable.',
   };
 };
 
@@ -365,6 +423,8 @@ export const AICoachEngine = {
     validated.tasks = Object.values(tasksByDay).flatMap(dayTasks =>
       dayTasks.sort((a, b) => a.priority - b.priority).slice(0, 3)
     );
+    // Re-enforce constraints after limiting (may need to add keystones back)
+    validated.tasks = enforcePlanConstraints(validated.tasks, answers);
     
     coachCache.set(payloadKey, validated);
     return validated;
