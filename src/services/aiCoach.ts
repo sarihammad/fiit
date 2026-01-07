@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { GoalClarificationAnswer, ActionType } from '@/types/coach';
+import { captureError } from '@/services/sentry';
 
 const QuestionSchema = z.object({
   questionKey: z.enum([
