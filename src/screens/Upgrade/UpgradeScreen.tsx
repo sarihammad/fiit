@@ -5,9 +5,41 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Copy } from '@/copy/strings';
+import { PAYWALL_EVENTS, type PurchaseFailProps } from '@/analytics/events';
+import { useAnalytics } from '@/providers/AnalyticsProvider';
+import { usePaywallStore } from '@/state/paywall.store';
 
 export const UpgradeScreen: React.FC = () => {
   const { theme } = useTheme();
+  const { trackEvent } = useAnalytics();
+  const { purchasePackage } = usePaywallStore();
+
+  React.useEffect(() => {
+    // Track upgrade view
+    trackEvent(PAYWALL_EVENTS.VIEW, {});
+  }, [trackEvent]);
+
+  const handleUpgrade = async () => {
+    // Track upgrade click
+    trackEvent(PAYWALL_EVENTS.CLICK, {});
+    try {
+      // TODO: Get package identifier from offerings
+      const success = await purchasePackage('fiit_pro_monthly');
+      if (success) {
+        trackEvent(PAYWALL_EVENTS.PURCHASE_SUCCESS, {});
+      } else {
+        const failProps: PurchaseFailProps = {
+          errorCode: 'unknown',
+        };
+        trackEvent(PAYWALL_EVENTS.PURCHASE_FAIL, failProps);
+      }
+    } catch (error) {
+      const failProps: PurchaseFailProps = {
+        errorCode: error instanceof Error ? error.message : 'unknown',
+      };
+      trackEvent(PAYWALL_EVENTS.PURCHASE_FAIL, failProps);
+    }
+  };
 
   return (
     <SafeAreaView
@@ -58,9 +90,7 @@ export const UpgradeScreen: React.FC = () => {
           </Text>
           <Button
             title="Upgrade now"
-            onPress={() => {
-              // TODO: Hook into billing provider (RevenueCat or Stripe).
-            }}
+            onPress={handleUpgrade}
             variant="primary"
           />
         </Card>
