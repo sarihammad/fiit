@@ -90,6 +90,15 @@ const ensureSchema = <T>(
   if (result.success) {
     return result.data;
   }
+  console.warn('[AICoach] Schema validation failed, using fallback:', result.error);
+  // Capture to Sentry with feature tag
+  const error = new Error('AI parsing failure');
+  error.name = 'AIParsingError';
+  captureError(error, {
+    feature: 'aiCoach',
+    zodError: result.error.errors,
+    payloadType: typeof payload,
+  });
   return fallback;
 };
 

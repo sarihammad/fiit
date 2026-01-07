@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { captureError } from '@/services/sentry';
 import Purchases, { 
   PurchasesOffering, 
   PurchasesPackage, 
@@ -150,6 +151,14 @@ export class PaywallService {
       };
     } catch (error) {
       console.error('[Paywall] Purchase failed:', error);
+      
+      // Capture paywall errors to Sentry
+      const paywallError = error instanceof Error ? error : new Error(String(error));
+      captureError(paywallError, {
+        feature: 'paywall',
+        action: 'purchase',
+        errorCode: (error as { code?: string }).code,
+      });
       
       const errorCode = (error as { code?: string }).code;
       if (errorCode === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
