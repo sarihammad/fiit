@@ -48,3 +48,5 @@
 3. Enhance TodayScreen to show coach feedback
 4. Make Today generate actions from logs if available, fallback to plan tasks
 
+
+
