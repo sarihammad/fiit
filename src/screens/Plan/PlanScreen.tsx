@@ -9,12 +9,15 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { useCoachStore } from '@/state/coach.store';
 import { AICoachEngine } from '@/services/aiCoach';
 import { track, trackScreenView } from '@/services/analytics';
+import { PLAN_EVENTS, type PlanGeneratedProps, type PlanCommittedProps } from '@/analytics/events';
+import { useAnalytics } from '@/providers/AnalyticsProvider';
 import { RootStackNavigationProp } from '@/utils/navigation';
 import { Copy } from '@/copy/strings';
 
 export const PlanScreen: React.FC = () => {
   const { theme } = useTheme();
   const navigation = useNavigation<RootStackNavigationProp>();
+  const { trackEvent } = useAnalytics();
   const {
     activeGoalId,
     activePlanId,
@@ -134,6 +137,13 @@ export const PlanScreen: React.FC = () => {
       );
       setPreviewPlan(plan);
       track('weekly_plan_preview_generated', { taskCount: plan.tasks.length });
+      // Track plan generated with new event
+      const days = [...new Set(plan.tasks.map(t => t.day))];
+      const props: PlanGeneratedProps = {
+        tasksCount: plan.tasks.length,
+        daysCount: days.length,
+      };
+      trackEvent(PLAN_EVENTS.GENERATED, props);
     } finally {
       setIsGenerating(false);
     }
@@ -141,6 +151,8 @@ export const PlanScreen: React.FC = () => {
 
   const handleCommitPlan = () => {
     if (!previewPlan || !activeGoal) return;
+    // Track commit clicked
+    trackEvent(PLAN_EVENTS.COMMIT_CLICKED, {});
     Alert.alert(
       Copy.plan.commitConfirmTitle,
       Copy.plan.commitConfirmMessage,
@@ -150,6 +162,8 @@ export const PlanScreen: React.FC = () => {
           text: Copy.plan.commitConfirmButton,
           style: 'default',
           onPress: () => {
+            // Track commit confirmed
+            trackEvent(PLAN_EVENTS.COMMIT_CONFIRMED, {});
             const weekStart =
               previewPlan.tasks[0]?.day || new Date().toISOString().slice(0, 10);
             track('weekly_plan_committed', { taskCount: previewPlan.tasks.length });
@@ -168,6 +182,12 @@ export const PlanScreen: React.FC = () => {
             setGoalStatus(activeGoal.id, 'active');
             setActivePlan(plan.id);
             setPreviewPlan(null);
+            // Track plan committed
+            const committedProps: PlanCommittedProps = {
+              tasksCount: previewPlan.tasks.length,
+              weeklyPlanId: plan.id,
+            };
+            trackEvent(PLAN_EVENTS.COMMITTED, committedProps);
             navigation.navigate('Today');
           },
         },

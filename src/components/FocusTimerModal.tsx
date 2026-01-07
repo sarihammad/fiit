@@ -17,6 +17,7 @@ interface FocusTimerModalProps {
   task: PlanTask | null;
   onClose: () => void;
   onMarkDone: (taskId: string) => void;
+  onTimerComplete?: (taskId: string, minutes: number) => void;
   onMakeItFiveMinutes: (task: PlanTask) => void;
 }
 
@@ -25,6 +26,7 @@ export const FocusTimerModal: React.FC<FocusTimerModalProps> = ({
   task,
   onClose,
   onMarkDone,
+  onTimerComplete,
   onMakeItFiveMinutes,
 }) => {
   const { theme } = useTheme();
@@ -54,6 +56,10 @@ export const FocusTimerModal: React.FC<FocusTimerModalProps> = ({
           if (prev === null || prev <= 1) {
             setIsRunning(false);
             setShowDonePrompt(true);
+            // Call timer complete callback
+            if (task && selectedMinutes !== null && onTimerComplete) {
+              onTimerComplete(task.id, selectedMinutes);
+            }
             if (intervalRef.current) {
               clearInterval(intervalRef.current);
               intervalRef.current = null;

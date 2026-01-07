@@ -9,6 +9,8 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { useCoachStore } from '@/state/coach.store';
 import { AICoachEngine } from '@/services/aiCoach';
 import { track, trackScreenView } from '@/services/analytics';
+import { ONBOARDING_EVENTS, type OnboardingAnswerSubmitProps, type OnboardingCompleteProps } from '@/analytics/events';
+import { useAnalytics } from '@/providers/AnalyticsProvider';
 import { GoalClarificationAnswer } from '@/types/coach';
 import { RootStackNavigationProp } from '@/utils/navigation';
 import { Copy } from '@/copy/strings';
@@ -19,6 +21,7 @@ const MAX_QUESTIONS = 7;
 export const StartScreen: React.FC = () => {
   const { theme } = useTheme();
   const navigation = useNavigation<RootStackNavigationProp>();
+  const { trackEvent } = useAnalytics();
   const {
     activeGoalId,
     goals,
@@ -45,11 +48,13 @@ export const StartScreen: React.FC = () => {
 
   useEffect(() => {
     trackScreenView('Start');
+    // Track onboarding open
+    trackEvent(ONBOARDING_EVENTS.OPEN, {});
     // Show disclaimer on first visit (before goal intake)
     if (!activeGoal && !hasAcceptedDisclaimer) {
       setShowDisclaimer(true);
     }
-  }, [activeGoal, hasAcceptedDisclaimer]);
+  }, [activeGoal, hasAcceptedDisclaimer, trackEvent]);
 
   useEffect(() => {
     if (!activeGoal) return;
@@ -99,10 +104,20 @@ export const StartScreen: React.FC = () => {
         index: goalAnswers.length + 1,
         totalTarget: MAX_QUESTIONS,
       });
+      // Track answer submit with new event
+      const props: OnboardingAnswerSubmitProps = {
+        questionKey: currentQuestion.key,
+      };
+      trackEvent(ONBOARDING_EVENTS.ANSWER_SUBMIT, props);
       addAnswer(activeGoal.id, currentQuestion.key, currentQuestion.text, answer);
       setAnswerText('');
       if (goalAnswers.length + 1 >= MAX_QUESTIONS) {
         track('clarification_completed', { totalAnswers: goalAnswers.length + 1 });
+        // Track onboarding complete
+        const completeProps: OnboardingCompleteProps = {
+          answersCount: goalAnswers.length + 1,
+        };
+        trackEvent(ONBOARDING_EVENTS.COMPLETE, completeProps);
         navigation.navigate('Plan');
         return;
       }
@@ -130,6 +145,7 @@ export const StartScreen: React.FC = () => {
       <MedicalDisclaimerModal
         visible={showDisclaimer}
         onAccept={() => {
+          trackEvent(ONBOARDING_EVENTS.DISCLAIMER_ACCEPT, {});
           setShowDisclaimer(false);
           setHasAcceptedDisclaimer(true);
         }}

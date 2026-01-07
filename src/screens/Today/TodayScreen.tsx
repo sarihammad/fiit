@@ -10,6 +10,8 @@ import { FocusTimerModal } from '@/components/FocusTimerModal';
 import { ActionTypeBadge } from '@/components/ActionTypeBadge';
 import { AICoachEngine } from '@/services/aiCoach';
 import { track, trackScreenView } from '@/services/analytics';
+import { TODAY_EVENTS, type TodayOpenProps, type TaskStartProps, type TimerCompleteProps, type TaskDoneProps, type TaskDeferProps, type MakeIt5ClickedProps, type MakeIt5AppliedProps } from '@/analytics/events';
+import { useAnalytics } from '@/providers/AnalyticsProvider';
 import { Copy, formatCopy } from '@/copy/strings';
 import { generateCoachFeedback, DailyLog, NutritionTargets } from '@/services/nutritionCoach';
 import { generateDailyActions, CoachAction } from '@/services/fatLossActionPlanner';
@@ -17,6 +19,7 @@ import { generateDailyActions, CoachAction } from '@/services/fatLossActionPlann
 export const TodayScreen: React.FC = () => {
   const { theme } = useTheme();
   const navigation = useNavigation();
+  const { trackEvent } = useAnalytics();
   const {
     activePlanId,
     planTasks,
@@ -53,6 +56,13 @@ export const TodayScreen: React.FC = () => {
 
   React.useEffect(() => {
     trackScreenView('Today');
+    // Track today open
+    const openProps: TodayOpenProps = {
+      date: today,
+      tasksCount: todayTasks.length,
+      weeklyPlanId: activePlanId,
+    };
+    trackEvent(TODAY_EVENTS.OPEN, openProps);
     // Adapt plan for avoidance patterns when Today screen opens
     if (activePlanId) {
       useCoachStore.getState().adaptPlanForAvoidance(activePlanId, today);
@@ -144,6 +154,15 @@ export const TodayScreen: React.FC = () => {
       setMicroStepResult(response);
       recordMicroStepUse();
       track('microstep_generated', { estimateMinutes: response.estimateMinutes });
+      // Track make it 5 applied
+      const task = todayTasks.find(t => t.title === microStepTarget.title);
+      if (task) {
+        const appliedProps: MakeIt5AppliedProps = {
+          taskId: task.id,
+          weeklyPlanId: activePlanId,
+        };
+        trackEvent(TODAY_EVENTS.MAKE_IT_5_APPLIED, appliedProps);
+      }
     } finally {
       setIsLoadingMicro(false);
     }
@@ -344,6 +363,14 @@ export const TodayScreen: React.FC = () => {
                         taskId: firstTask.id,
                         priority: firstTask.priority,
                       });
+                      // Track task start
+                      const startProps: TaskStartProps = {
+                        taskId: firstTask.id,
+                        actionType: firstTask.actionType,
+                        estimateMinutes: firstTask.estimateMinutes,
+                        weeklyPlanId: activePlanId,
+                      };
+                      trackEvent(TODAY_EVENTS.TASK_START, startProps);
                     }}
                     variant="primary"
                   />
@@ -473,12 +500,23 @@ export const TodayScreen: React.FC = () => {
                     onPress={() => {
                       if (showDeferReason) {
                         const reason = key as any;
+                        const task = todayTasks.find(t => t.id === showDeferReason);
                         deferTask(showDeferReason, reason);
                         addExecutionEvent(showDeferReason, 'defer');
                         track('task_deferred', {
                           taskId: showDeferReason,
                           deferReason: reason,
                         });
+                        // Track task defer
+                        if (task) {
+                          const deferProps: TaskDeferProps = {
+                            taskId: task.id,
+                            reason,
+                            deferCount: task.deferCount + 1,
+                            weeklyPlanId: activePlanId,
+                          };
+                          trackEvent(TODAY_EVENTS.TASK_DEFER, deferProps);
+                        }
                         // Adapt plan after defer
                         if (activePlanId) {
                           useCoachStore.getState().adaptPlanForAvoidance(activePlanId, today);
@@ -512,8 +550,27 @@ export const TodayScreen: React.FC = () => {
             track('task_completed', {
               taskId,
             });
+            // Track task done
+            const task = focusTimerTask;
+            if (task) {
+              const doneProps: TaskDoneProps = {
+                taskId: task.id,
+                actionType: task.actionType,
+                weeklyPlanId: activePlanId,
+              };
+              trackEvent(TODAY_EVENTS.TASK_DONE, doneProps);
+            }
             setShowFocusTimer(false);
             setFocusTimerTask(null);
+          }}
+          onTimerComplete={(taskId, minutes) => {
+            // Track timer complete
+            const timerProps: TimerCompleteProps = {
+              taskId,
+              minutes,
+              weeklyPlanId: activePlanId,
+            };
+            trackEvent(TODAY_EVENTS.TIMER_COMPLETE, timerProps);
           }}
           onMakeItFiveMinutes={(task) => {
             setShowFocusTimer(false);
@@ -528,6 +585,13 @@ export const TodayScreen: React.FC = () => {
             track('microstep_from_timer', {
               taskId: task.id,
             });
+            // Track make it 5 clicked
+            const makeIt5Props: MakeIt5ClickedProps = {
+              taskId: task.id,
+              reason: task.lastDeferReason,
+              weeklyPlanId: activePlanId,
+            };
+            trackEvent(TODAY_EVENTS.MAKE_IT_5_CLICKED, makeIt5Props);
           }}
         />
 
