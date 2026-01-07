@@ -13,6 +13,7 @@ import { PLAN_EVENTS, type PlanGeneratedProps, type PlanCommittedProps } from '@
 import { useAnalytics } from '@/providers/AnalyticsProvider';
 import { RootStackNavigationProp } from '@/utils/navigation';
 import { Copy } from '@/copy/strings';
+import { validateFatLossPlan } from '@/utils/planValidation';
 
 export const PlanScreen: React.FC = () => {
   const { theme } = useTheme();
@@ -130,11 +131,34 @@ export const PlanScreen: React.FC = () => {
     try {
       track('weekly_plan_preview_requested');
       const weekStart = new Date();
-      const plan = await AICoachEngine.generateWeeklyPlan(
+      let plan = await AICoachEngine.generateWeeklyPlan(
         activeGoal.title,
         goalAnswers,
         weekStart
       );
+      
+      // Validate plan - if invalid, try once more with fallback
+      let validation = validateFatLossPlan(plan, goalAnswers);
+      if (!validation.isValid) {
+        // Try once more with deterministic fallback
+        console.warn('[Plan] Validation failed, retrying with fallback:', validation.errors);
+        plan = await AICoachEngine.generateWeeklyPlan(
+          activeGoal.title,
+          goalAnswers,
+          weekStart
+        );
+        validation = validateFatLossPlan(plan, goalAnswers);
+      }
+      
+      // If still invalid, show error but allow user to proceed (they can rebuild)
+      if (!validation.isValid) {
+        Alert.alert(
+          'Plan needs a quick fix',
+          `Tap rebuild to fix:\n${validation.errors.slice(0, 3).join('\n')}`,
+          [{ text: 'OK' }]
+        );
+      }
+      
       setPreviewPlan(plan);
       track('weekly_plan_preview_generated', { taskCount: plan.tasks.length });
       // Track plan generated with new event
@@ -151,6 +175,21 @@ export const PlanScreen: React.FC = () => {
 
   const handleCommitPlan = () => {
     if (!previewPlan || !activeGoal) return;
+    
+    // Validate plan before commit
+    const validation = validateFatLossPlan(previewPlan, goalAnswers);
+    if (!validation.isValid) {
+      Alert.alert(
+        'Plan needs a quick fix',
+        `Tap rebuild to fix:\n${validation.errors.slice(0, 3).join('\n')}`,
+        [
+          { text: 'Rebuild', onPress: handleGeneratePreview },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+    
     // Track commit clicked
     trackEvent(PLAN_EVENTS.COMMIT_CLICKED, {});
     Alert.alert(
